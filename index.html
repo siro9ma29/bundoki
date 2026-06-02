@@ -1183,18 +1183,57 @@ function svgPoint(evt){
   return [(t.clientX-r.left), (t.clientY-r.top)];
 }
 const SNAP_V=34, SNAP_E=8; // snap thresholds
+// Touch-friendly hit radii (in px). Touch targets need to be generous because
+// fingers are imprecise and the SVG elements themselves are thin.
+const HIT_ROTATE=46;   // grab radius around the ↻ rotate handle
+const HIT_AUX=44;      // grab radius around the auxiliary-line handle
+
+// Returns the role under a screen point using GEOMETRY, not e.target.
+// e.target is unreliable on touch (it can resolve to an overlapping layer
+// such as the "?" part labels or hint overlay drawn above the protractor),
+// which was causing taps on the protractor / rotate handle to be missed and
+// taps away from the handle to rotate. Geometry-based hit testing fixes both.
+function hitRole(mx,my){
+  const p=state.prot, R=protRadius();
+  // 1) auxiliary handle (level 5 aux mode) — highest priority.
+  //    Its on-screen position mirrors drawing: polar(cx,cy,auxAngle,fullLen+10).
+  if(state.mode==='aux' && state.auxAngle!=null){
+    const fullLen=Math.min(W*0.30,235);
+    const [ax,ay]=polar(state.q.cx,state.q.cy,state.auxAngle,fullLen+10);
+    if(dist(mx,my,ax,ay)<HIT_AUX) return 'aux';
+  }
+  // 2) rotate handle — only when vertex-locked; sits at baseline right end,
+  //    rotated with the protractor. Generous radius so it's easy to grab.
+  if(state.prot.visible && p.vlock){
+    const [hx,hy]=polar(p.x,p.y,p.rot,R-3);
+    if(dist(mx,my,hx,hy)<HIT_ROTATE) return 'rotate';
+  }
+  // 3) protractor body — only the actual upper semicircle (+ a small base
+  //    strip), NOT the empty lower half. This matches what the child sees.
+  if(state.prot.visible){
+    const d=dist(mx,my,p.x,p.y);
+    if(d<R+16){
+      // angle of the point relative to the protractor's own (rotated) frame.
+      // local angle 0..180 = the visible half-disc; allow a little below the
+      // baseline (down to -25°) to cover the flat base strip.
+      const local=norm360(angleOf(p.x,p.y,mx,my)-p.rot);
+      const onDisc = (local<=180) || (local>=335);
+      if(onDisc) return 'move';
+    }
+  }
+  return null;
+}
 
 function pointerDown(e){
-  const role0=e.target.dataset?.role || e.target.parentNode?.dataset?.role;
-  // ⑥⑦ level5: tap a "?" angle label. It selects the part for keypad input AND,
-  // when the loupe is on, automatically magnifies the correct scale for that
-  // part (no more tapping the protractor scale directly).
-  if(role0==='partlabel'){
+  const [mx,my]=svgPoint(e);
+  // ⑥⑦ level5: tap a "?" angle label. These live ABOVE the protractor, so we
+  // still detect them via e.target (a deliberate tap, not a drag).
+  const tgtRole=e.target.dataset?.role || e.target.parentNode?.dataset?.role;
+  if(tgtRole==='partlabel'){
     const part=e.target.dataset?.part || e.target.parentNode?.dataset?.part;
     state.activePart = (state.activePart===part)? null : part;
-    // ⑦ if the loupe is on, magnify the scale that reads THIS part automatically.
     if(state.level===5 && state.loupe && state.activePart===part){
-      state.loupePart=part;          // measuredBoundaries()/drawLoupe use this
+      state.loupePart=part;
       state.loupeFocus=null;
       helpnote('この 角の 目もりを 拡大したよ。分度器の 数字を よんで「？」に 入力しよう');
     }
@@ -1203,37 +1242,21 @@ function pointerDown(e){
     return;
   }
   if(!state.prot.visible && state.mode!=='aux') {return;}
-  const [mx,my]=svgPoint(e);
-  const role=role0;
-  // ⑦ The old "tap the protractor scale to magnify" behaviour has been removed.
-  // In level 5 the loupe is driven entirely by which "?" part is selected.
-  // level5 aux handle
-  if(role==='auxhandle' && state.mode==='aux'){
+
+  // Everything else is decided by GEOMETRY, so finger imprecision and
+  // overlapping SVG layers can't steal the touch.
+  const role=hitRole(mx,my);
+  if(role==='aux'){
     state.drag={type:'aux'}; e.preventDefault(); return;
   }
-  if(role==='rotate' && state.prot.vlock){
+  if(role==='rotate'){
     state.drag={type:'rotate'}; e.preventDefault(); return;
   }
-  // Extra safety: when vertex-locked, a tap anywhere near the rotation handle
-  // position should rotate (not unlock). This widens the effective hit area so
-  // the protractor doesn't slip off the vertex.
-  if(state.prot.vlock){
-    const p=state.prot, R=protRadius();
-    const [hx,hy]=polar(p.x,p.y,p.rot,R-3); // handle is at baseline right end, rotated
-    if(dist(mx,my,hx,hy)<42){
-      state.drag={type:'rotate'}; e.preventDefault(); return;
-    }
-  }
-  if(state.prot.visible){
-    // hit test protractor (within radius of its center, on the disc)
-    const p=state.prot, R=protRadius();
-    const d=dist(mx,my,p.x,p.y);
-    if(d<R+16){
-      // dragging the body always moves; the rotate handle (checked above) rotates.
-      // Even when vertex-locked, a body drag lets the user pull it off the vertex.
-      state.drag={type:'move',dx:mx-p.x,dy:my-p.y};
-      e.preventDefault();
-    }
+  if(role==='move'){
+    const p=state.prot;
+    state.drag={type:'move',dx:mx-p.x,dy:my-p.y};
+    e.preventDefault();
+    return;
   }
 }
 function pointerMove(e){
