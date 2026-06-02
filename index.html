@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>分度器マスター</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
+
+  :root{
+    --paper:#fdf6e3;
+    --ink:#3a3226;
+    --sky:#4ec5d6;
+    --sky-dark:#2a9bad;
+    --coral:#ff7a59;
+    --coral-dark:#e8553a;
+    --sun:#ffcf4d;
+    --sun-dark:#f0b429;
+    --grass:#8bc34a;
+    --grass-dark:#689f38;
+    --berry:#e84393;
+    --proto:#7c4dff;
+    --line:#5a4a3a;
+    --hint:#ff4081;
+    --shadow:rgba(90,74,58,.25);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:'Zen Maru Gothic',sans-serif;}
+  body{
+    background:
+      radial-gradient(circle at 12% 18%, #fff7df 0%, transparent 45%),
+      radial-gradient(circle at 88% 80%, #ffe9d6 0%, transparent 45%),
+      repeating-linear-gradient(0deg, transparent 0 38px, rgba(120,150,200,.07) 38px 39px),
+      var(--paper);
+    color:var(--ink);
+    touch-action:manipulation;
+    user-select:none;
+  }
+  #app{height:100%;display:flex;flex-direction:column;}
+
+  /* ---------- TOP BAR ---------- */
+  header{
+    flex:0 0 auto;display:flex;align-items:center;gap:10px;
+    padding:8px 14px;background:linear-gradient(180deg,#fffdf6,#fcefcf);
+    box-shadow:0 3px 0 #e9d9ab,0 6px 14px rgba(120,90,30,.12);
+    z-index:30;position:relative;
+  }
+  .logo{font-weight:900;font-size:clamp(16px,3.6vw,24px);letter-spacing:.5px;
+    color:var(--coral-dark);display:flex;align-items:center;gap:6px;white-space:nowrap;}
+  .logo .gizmo{font-size:1.25em;transform:rotate(-12deg);display:inline-block;}
+  .levelpips{display:flex;gap:5px;margin-left:6px;}
+  .pip{width:clamp(20px,4.4vw,30px);height:clamp(20px,4.4vw,30px);border-radius:50%;
+    display:grid;place-items:center;font-weight:900;font-size:clamp(11px,2.3vw,15px);
+    background:#fff;border:2.5px solid #e3d2a5;color:#b7a878;cursor:pointer;transition:.15s;}
+  .pip.active{background:var(--sky);border-color:var(--sky-dark);color:#fff;transform:scale(1.12);
+    box-shadow:0 3px 0 var(--sky-dark);}
+  .pip.done{background:var(--grass);border-color:var(--grass-dark);color:#fff;}
+  .spacer{flex:1;}
+  .score{font-weight:900;font-size:clamp(13px,2.8vw,18px);color:var(--grass-dark);
+    background:#fff;border:2.5px solid #cfe6a8;border-radius:14px;padding:3px 12px;
+    display:flex;align-items:center;gap:5px;box-shadow:0 3px 0 #cfe6a8;white-space:nowrap;}
+
+  /* ---------- MAIN ---------- */
+  main{flex:1 1 auto;display:flex;min-height:0;}
+  #stage-wrap{flex:1 1 auto;position:relative;min-width:0;display:flex;flex-direction:column;}
+  .questionbar{
+    position:absolute;top:10px;left:50%;transform:translateX(-50%);
+    background:#fff;border:3px solid var(--sun);border-radius:18px;
+    padding:7px 18px;font-weight:700;font-size:clamp(13px,2.7vw,18px);
+    box-shadow:0 4px 0 var(--sun-dark),0 8px 16px var(--shadow);
+    z-index:12;text-align:center;max-width:90%;color:var(--ink);
+    display:flex;align-items:center;gap:8px;
+  }
+  .questionbar .qnum{background:var(--coral);color:#fff;border-radius:10px;padding:1px 9px;font-weight:900;font-size:.85em;}
+  svg#stage{flex:1;width:100%;height:100%;display:block;touch-action:none;}
+
+  /* floating tool buttons (left side of stage) */
+  .toolcol{position:absolute;left:10px;top:60px;display:flex;flex-direction:column;gap:9px;z-index:14;}
+  .toolbtn{
+    width:clamp(46px,9vw,58px);height:clamp(46px,9vw,58px);border-radius:16px;border:none;
+    background:linear-gradient(180deg,#fff,#fdeccb);box-shadow:0 4px 0 #e3c98d,0 6px 12px var(--shadow);
+    font-size:clamp(20px,4.6vw,26px);cursor:pointer;display:grid;place-items:center;transition:.1s;
+    position:relative;
+  }
+  .toolbtn:active{transform:translateY(3px);box-shadow:0 1px 0 #e3c98d;}
+  .toolbtn.on{background:linear-gradient(180deg,var(--sun),var(--sun-dark));box-shadow:0 4px 0 #c99211;}
+  .toolbtn .cap{position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);
+    font-size:9px;font-weight:900;background:var(--ink);color:#fff;padding:1px 5px;border-radius:6px;white-space:nowrap;}
+  .toolbtn:disabled{opacity:.35;cursor:default;filter:grayscale(.6);}
+
+  .actioncol{position:absolute;right:10px;top:60px;display:flex;flex-direction:column;gap:9px;z-index:14;align-items:flex-end;}
+  .bigaction{
+    border:none;border-radius:16px;padding:10px 14px;font-family:inherit;font-weight:900;
+    font-size:clamp(12px,2.5vw,15px);cursor:pointer;transition:.1s;display:flex;align-items:center;gap:6px;
+    box-shadow:0 4px 0 rgba(0,0,0,.18),0 6px 12px var(--shadow);color:#fff;white-space:nowrap;
+  }
+  .bigaction:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.18);}
+  .a-hint{background:linear-gradient(180deg,#ff9bb4,var(--hint));}
+  .a-extend{background:linear-gradient(180deg,#9fd86a,var(--grass-dark));}
+  .a-aux{background:linear-gradient(180deg,#9b7bff,var(--proto));}
+  .a-360{background:linear-gradient(180deg,#5fd3e2,var(--sky-dark));}
+  .bigaction:disabled{opacity:.4;cursor:default;filter:grayscale(.5);}
+  .bigaction.chosen{outline:4px solid #fff;outline-offset:-2px;}
+
+  /* ---------- RIGHT PANEL ---------- */
+  #panel{
+    flex:0 0 clamp(220px,30vw,300px);background:linear-gradient(180deg,#fffdf7,#f6ecd2);
+    box-shadow:-4px 0 0 #ead9ad,-8px 0 18px rgba(120,90,30,.1);
+    display:flex;flex-direction:column;padding:12px;gap:10px;z-index:20;overflow:hidden;
+  }
+  .ans-display{
+    background:#fff;border:3px solid var(--sky);border-radius:16px;min-height:62px;
+    display:flex;align-items:center;justify-content:center;gap:4px;
+    font-weight:900;font-size:clamp(28px,6vw,40px);color:var(--ink);
+    box-shadow:inset 0 3px 0 #d9f0f4;position:relative;
+  }
+  .ans-display .deg{font-size:.55em;color:var(--sky-dark);margin-left:2px;}
+  .ans-display .ph{color:#c9bfa8;}
+  .ans-display .cursor{width:3px;height:.85em;background:var(--coral);animation:blink 1s steps(2) infinite;border-radius:2px;}
+  @keyframes blink{50%{opacity:0;}}
+
+  .memo-wrap{display:none;flex-direction:column;gap:4px;}
+  .memo-wrap.show{display:flex;}
+  .memo-label{font-weight:700;font-size:12px;color:var(--proto);display:flex;align-items:center;gap:4px;}
+  .memo{width:100%;border:2.5px dashed var(--proto);border-radius:12px;background:#faf7ff;
+    font-family:inherit;font-weight:700;font-size:clamp(16px,3.4vw,22px);color:var(--proto);
+    padding:8px 10px;resize:none;height:46px;outline:none;text-align:center;}
+  .memo::placeholder{color:#c4b3f0;font-weight:500;font-size:13px;}
+
+  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:auto;}
+  .key{
+    border:none;border-radius:14px;padding:0;height:clamp(44px,9vw,58px);
+    font-family:inherit;font-weight:900;font-size:clamp(20px,4.4vw,26px);cursor:pointer;transition:.08s;
+    background:linear-gradient(180deg,#fff,#f3e8cf);color:var(--ink);
+    box-shadow:0 4px 0 #ddca9e,0 5px 9px var(--shadow);
+  }
+  .key:active{transform:translateY(3px);box-shadow:0 1px 0 #ddca9e;}
+  .key.del{background:linear-gradient(180deg,#ffd2c4,#ffb59e);color:var(--coral-dark);box-shadow:0 4px 0 #e89077;}
+  .key.clr{background:linear-gradient(180deg,#ffe6a8,#ffd35e);color:#9c6b00;box-shadow:0 4px 0 #e0b22e;
+    font-size:clamp(13px,2.8vw,17px);letter-spacing:-.5px;}
+  .key.zero{grid-column:span 1;}
+
+  .submit{
+    border:none;border-radius:16px;padding:13px;font-family:inherit;font-weight:900;
+    font-size:clamp(17px,3.8vw,22px);cursor:pointer;color:#fff;letter-spacing:1px;
+    background:linear-gradient(180deg,#ffb04d,var(--coral));box-shadow:0 5px 0 var(--coral-dark),0 8px 14px var(--shadow);
+    transition:.1s;display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .submit:active{transform:translateY(4px);box-shadow:0 1px 0 var(--coral-dark);}
+
+  /* ---------- FEEDBACK + OVERLAYS ---------- */
+  #toast{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.6);
+    background:#fff;border-radius:24px;padding:22px 30px;text-align:center;z-index:60;
+    box-shadow:0 12px 40px rgba(0,0,0,.25);pointer-events:none;opacity:0;transition:.25s cubic-bezier(.2,1.3,.4,1);
+    border:5px solid var(--sun);min-width:200px;
+  }
+  #toast.show{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  #toast.bad{border-color:var(--sky);}
+  #toast .face{font-size:54px;line-height:1;}
+  #toast .msg{font-weight:900;font-size:22px;margin-top:6px;color:var(--coral-dark);}
+  #toast.bad .msg{color:var(--sky-dark);}
+  #toast .sub{font-weight:700;font-size:14px;margin-top:5px;color:#8a7a64;}
+
+  .confetti{position:absolute;width:12px;height:12px;z-index:55;pointer-events:none;border-radius:2px;}
+
+  /* level complete / welcome modal */
+  #modal{
+    position:absolute;inset:0;background:rgba(58,50,38,.55);z-index:80;display:none;
+    align-items:center;justify-content:center;backdrop-filter:blur(3px);
+  }
+  #modal.show{display:flex;}
+  .card{
+    background:linear-gradient(180deg,#fffef9,#fdeccb);border-radius:26px;padding:26px 28px;text-align:center;
+    box-shadow:0 18px 50px rgba(0,0,0,.3);border:6px solid var(--sun);max-width:88%;width:380px;
+    animation:pop .35s cubic-bezier(.2,1.3,.4,1);
+  }
+  @keyframes pop{from{transform:scale(.5);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .card h2{margin:.2em 0;font-size:26px;color:var(--coral-dark);}
+  .card .big{font-size:60px;line-height:1.1;}
+  .card p{font-weight:700;color:#7a6a54;margin:.5em 0 1.2em;font-size:15px;line-height:1.5;}
+  .card .stars{font-size:34px;letter-spacing:4px;margin:.2em 0;}
+  .card button{
+    border:none;border-radius:16px;padding:13px 28px;font-family:inherit;font-weight:900;font-size:18px;
+    color:#fff;cursor:pointer;background:linear-gradient(180deg,#ffb04d,var(--coral));
+    box-shadow:0 5px 0 var(--coral-dark);transition:.1s;margin:4px;
+  }
+  .card button:active{transform:translateY(4px);box-shadow:0 1px 0 var(--coral-dark);}
+  .card button.alt{background:linear-gradient(180deg,#5fd3e2,var(--sky-dark));box-shadow:0 5px 0 #1f7d8c;}
+
+  /* ---------- CALCULATOR POPUP ---------- */
+  /* Docked to the right side of the stage so the figure stays visible while
+     calculating. No full-screen dimming, no blocking of the keypad. */
+  #calcPop{position:absolute;bottom:10px;right:10px;z-index:90;display:none;
+    align-items:flex-end;justify-content:flex-end;background:transparent;pointer-events:none;}
+  #calcPop.show{display:flex;}
+  .calc-card{background:linear-gradient(180deg,#fffef9,#f4ead2);border-radius:22px;padding:12px;
+    width:min(248px,46vw);max-height:calc(100% - 8px);overflow:auto;
+    box-shadow:0 16px 44px rgba(0,0,0,.3);border:5px solid var(--proto);
+    animation:pop .25s cubic-bezier(.2,1.3,.4,1);pointer-events:auto;}
+  .calc-head{display:flex;align-items:center;justify-content:space-between;font-weight:900;
+    font-size:17px;color:var(--proto);margin-bottom:8px;}
+  .calc-close{border:none;background:#efe6ff;color:var(--proto);font-weight:900;font-size:16px;
+    width:30px;height:30px;border-radius:10px;cursor:pointer;}
+  .calc-screen{background:#fff;border:3px solid var(--proto);border-radius:12px;min-height:50px;
+    display:flex;align-items:center;justify-content:flex-end;padding:6px 14px;font-weight:900;
+    font-size:26px;color:var(--ink);overflow:hidden;word-break:break-all;text-align:right;}
+  .calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px;}
+  .cbtn{border:none;border-radius:13px;height:clamp(42px,8vw,52px);font-family:inherit;font-weight:900;
+    font-size:clamp(16px,3.6vw,21px);cursor:pointer;background:linear-gradient(180deg,#fff,#f1e7d0);
+    color:var(--ink);box-shadow:0 3px 0 #ddca9e;transition:.08s;}
+  .cbtn:active{transform:translateY(3px);box-shadow:0 0 0 #ddca9e;}
+  .cbtn.cop{background:linear-gradient(180deg,#cdbcff,#9b7bff);color:#fff;box-shadow:0 3px 0 #6f4fe0;}
+  .cbtn.cfn{background:linear-gradient(180deg,#ffd2c4,#ffb59e);color:var(--coral-dark);box-shadow:0 3px 0 #e89077;}
+  .cbtn.ceq{grid-row:span 2;background:linear-gradient(180deg,#ffb04d,var(--coral));color:#fff;box-shadow:0 3px 0 var(--coral-dark);}
+  .cbtn.czero{grid-column:span 1;}
+  .calc-tomemo{width:100%;margin-top:10px;border:none;border-radius:13px;padding:11px;font-family:inherit;
+    font-weight:900;font-size:16px;color:#fff;cursor:pointer;
+    background:linear-gradient(180deg,#9fd86a,var(--grass-dark));box-shadow:0 4px 0 #4e7a28;}
+  .calc-tomemo:active{transform:translateY(3px);box-shadow:0 1px 0 #4e7a28;}
+
+  .lvlpicker{display:flex;flex-direction:column;gap:9px;margin:14px 0 6px;}
+  .lvlpicker button{padding:14px 18px;font-size:16px;border-radius:14px;text-align:left;
+    display:flex;align-items:center;gap:12px;line-height:1.3;}
+  .lvlpicker button .lvtag{flex:0 0 auto;background:rgba(255,255,255,.85);color:var(--sky-dark);
+    font-weight:900;border-radius:10px;padding:3px 10px;font-size:15px;}
+  .card.wide{width:min(620px,92%);max-width:92%;}
+  .card.wide p{font-size:16px;}
+  .card.wide h2{font-size:30px;}
+
+  /* small helper note bottom of stage */
+  .helpnote{
+    position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+    background:rgba(255,255,255,.9);border:2px solid #e3d2a5;border-radius:12px;
+    padding:5px 14px;font-size:clamp(11px,2.3vw,13px);font-weight:700;color:#8a7a64;z-index:11;
+    box-shadow:0 3px 8px var(--shadow);text-align:center;max-width:88%;
+  }
+
+  @media(max-width:720px){
+    main{flex-direction:column;}
+    #panel{flex:0 0 auto;flex-direction:row;flex-wrap:wrap;align-items:stretch;
+      box-shadow:0 -4px 0 #ead9ad;padding:8px;gap:7px;}
+    .ans-display{flex:1 1 100%;min-height:48px;font-size:30px;order:1;}
+    .memo-wrap{flex:1 1 100%;order:2;}
+    .keypad{order:4;flex:1 1 58%;margin-top:0;gap:6px;}
+    .key{height:42px;font-size:20px;}
+    .rightcol{order:3;flex:1 1 36%;display:flex;flex-direction:column;gap:7px;justify-content:flex-end;}
+    .submit{padding:10px;}
+    .toolcol{top:54px;}
+    .actioncol{top:54px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo"><span class="gizmo">📐</span>分度器マスター</div>
+    <div class="levelpips" id="levelpips"></div>
+    <div class="spacer"></div>
+    <div class="score">⭐ <span id="score">0</span></div>
+  </header>
+
+  <main>
+    <div id="stage-wrap">
+      <div class="questionbar" id="questionbar"><span class="qnum" id="qnum">1/5</span><span id="qtext">…</span></div>
+
+      <div class="toolcol" id="toolcol">
+        <button class="toolbtn" id="loupeBtn" title="拡大">🔍<span class="cap">ルーペ</span></button>
+      </div>
+
+      <div class="actioncol" id="actioncol">
+        <button class="bigaction a-hint" id="hintBtn">💡ヒント</button>
+        <button class="bigaction a-extend" id="extendBtn" style="display:none">📏へんを のばす</button>
+        <button class="bigaction a-aux" id="auxBtn" style="display:none">✏️補助線を引く</button>
+        <button class="bigaction a-360" id="from360Btn" style="display:none">🔄360度から引く</button>
+      </div>
+
+      <svg id="stage" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="helpnote" id="helpnote"></div>
+
+      <div id="calcPop">
+        <div class="calc-card">
+          <div class="calc-head">🧮 でんたく <button class="calc-close" id="calcClose">✕</button></div>
+          <div class="calc-screen" id="calcScreen">0</div>
+          <div class="calc-grid">
+            <button class="cbtn cfn" data-c="C">C</button>
+            <button class="cbtn cfn" data-c="DEL">⌫</button>
+            <button class="cbtn cop" data-c="÷">÷</button>
+            <button class="cbtn cop" data-c="×">×</button>
+            <button class="cbtn" data-c="7">7</button>
+            <button class="cbtn" data-c="8">8</button>
+            <button class="cbtn" data-c="9">9</button>
+            <button class="cbtn cop" data-c="-">−</button>
+            <button class="cbtn" data-c="4">4</button>
+            <button class="cbtn" data-c="5">5</button>
+            <button class="cbtn" data-c="6">6</button>
+            <button class="cbtn cop" data-c="+">＋</button>
+            <button class="cbtn" data-c="1">1</button>
+            <button class="cbtn" data-c="2">2</button>
+            <button class="cbtn" data-c="3">3</button>
+            <button class="cbtn ceq" data-c="=" rowspan>＝</button>
+            <button class="cbtn czero" data-c="0">0</button>
+            <button class="cbtn" data-c="180">180</button>
+            <button class="cbtn" data-c="360">360</button>
+          </div>
+          <button class="calc-tomemo" id="calcToMemo">📝 メモに かく</button>
+        </div>
+      </div>
+    </div>
+
+    <aside id="panel">
+      <div class="ans-display" id="ansDisplay"><span class="ph">?</span></div>
+      <div class="memo-wrap" id="memoWrap">
+        <div class="memo-label">📝 けいさんメモ（タップで でんたく）</div>
+        <textarea class="memo" id="memo" placeholder="タップして でんたくで けいさん" inputmode="none" readonly></textarea>
+      </div>
+      <div class="keypad" id="keypad">
+        <button class="key" data-k="1">1</button>
+        <button class="key" data-k="2">2</button>
+        <button class="key" data-k="3">3</button>
+        <button class="key" data-k="4">4</button>
+        <button class="key" data-k="5">5</button>
+        <button class="key" data-k="6">6</button>
+        <button class="key" data-k="7">7</button>
+        <button class="key" data-k="8">8</button>
+        <button class="key" data-k="9">9</button>
+        <button class="key clr" data-k="C">ぜんけし</button>
+        <button class="key zero" data-k="0">0</button>
+        <button class="key del" data-k="DEL">⌫</button>
+      </div>
+      <div class="rightcol">
+        <button class="submit" id="submitBtn">⭕ こたえる</button>
+      </div>
+    </aside>
+  </main>
+
+  <div id="toast"><div class="face">🎉</div><div class="msg">せいかい！</div><div class="sub"></div></div>
+  <div id="modal"><div class="card" id="card"></div></div>
+</div>
+
+<script>
+/* ======================================================================
+   分度器マスター  -  小学4年生 角度学習アプリ
+   SVG による精密描画・スナップ・回転・ヒント演出
+====================================================================== */
+const SVGNS="http://www.w3.org/2000/svg";
+const stage=document.getElementById('stage');
+let W=0,H=0;            // stage size in svg user units (= px)
+function resize(){
+  const r=stage.getBoundingClientRect();
+  W=r.width;H=r.height;
+  stage.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  // ① re-centre the figure (and a centred, unmoved protractor) for the new size
+  if(state.q){
+    const oldCx=state.q.cx, oldCy=state.q.cy;
+    const [ncx,ncy]=figureCenter();
+    state.q.cx=ncx; state.q.cy=ncy;
+    const p=state.prot;
+    // if the protractor was sitting on the vertex, keep it there; otherwise shift
+    // it by the same delta so it stays in the same relative spot and on-screen.
+    if(p.vlock){ p.x=ncx; p.y=ncy; }
+    else { p.x+=(ncx-oldCx); p.y+=(ncy-oldCy); }
+    const R=protRadius();
+    p.x=clamp(p.x, R+8, W-R-8);
+    p.y=clamp(p.y, R+8, H-8);
+    render();
+  }
+}
+window.addEventListener('resize',()=>{clearTimeout(window._rt);window._rt=setTimeout(resize,120);});
+
+/* ---------------- helpers ---------------- */
+const TAU=Math.PI*2, D2R=Math.PI/180, R2D=180/Math.PI;
+function el(tag,attrs){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function norm360(a){a%=360;if(a<0)a+=360;return a;}
+function dist(ax,ay,bx,by){return Math.hypot(ax-bx,ay-by);}
+function ptOnLine(cx,cy,deg,len){return [cx+Math.cos(deg*D2R)*len, cy+Math.sin(deg*D2R)*len];}
+// We use math convention but screen Y is down; for angle drawing we keep degrees measured
+// counter-clockwise from +X by negating y. helper to convert "up-positive" angle:
+function polar(cx,cy,deg,len){ // deg measured CCW from east, screen coords
+  return [cx+Math.cos(-deg*D2R)*len, cy+Math.sin(-deg*D2R)*len];
+}
+// screen-angle (degrees CCW-from-east, y-up) of vector vertex->point
+function angleOf(vx,vy,px,py){ return norm360(Math.atan2(-(py-vy), px-vx)*R2D); }
+
+/* ① Figure vertex placement.
+   Keep the vertex centred within the *usable* stage area so neither the figure
+   nor the protractor gets pushed off the right edge on small screens. The left
+   tool column and right action column overlay the stage, so we inset by their
+   approximate widths and centre the vertex in what remains. */
+function figureCenter(){
+  const leftInset  = 76;   // tool column (loupe) ~58px + margin
+  const rightInset = 110;  // action column (hint/extend etc.) width + margin
+  const usableL = leftInset;
+  const usableR = Math.max(usableL+40, W - rightInset);
+  let cx = (usableL + usableR) / 2;
+  // make sure the widest thing (protractor radius) still fits on both sides
+  const R = protRadius();
+  cx = clamp(cx, R+10, W - R - 10);
+  if(W - R - 10 < R+10) cx = W/2;   // very narrow screen fallback
+  const cy = clamp(H*0.58, R+50, H-40);
+  return [cx, cy];
+}
+
+/* ================= GLOBAL STATE ================= */
+const state={
+  level:1, qIndex:0, qPerLevel:5, score:0,
+  levelDone:[false,false,false,false,false],
+  q:null,            // current question object
+  answer:"",         // typed answer
+  // protractor
+  prot:{x:0,y:0,rot:0,vlock:false,elock:false,visible:false,scale:1},
+  drag:null,
+  hint:false,
+  loupe:false,
+  loupeFocus:null,  // {x,y} tapped focus point for the magnifier (level5)
+  loupePart:null,   // level5 aux: which "?" part the loupe is magnifying ('a'|'b')
+  extended:false,    // level3
+  auxAngle:null,     // level5 A aux line current angle (screen deg)
+  auxLocked:false,
+  auxBase:'A',       // ⑥ which ray the aux line extends: 'A' (rayA) or 'B' (rayB)
+  mode:null,         // level5: 'aux' | '360'
+  pointers:{},
+  // level5 tappable angle parts (⑥⑦): values typed into the "?" markers on the figure
+  partInputs:{a:"",b:""},   // a = first part (e.g. 180), b = second part (e.g. □)
+  activePart:null,          // which part the keypad currently edits: 'a' | 'b' | null
+};
+
+/* ================= QUESTION GENERATION ================= */
+// pick from list without immediate repeat
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+
+function genQuestion(level){
+  // vertex placed in stage; rays drawn. measured angle is between ray A (start) and ray B.
+  // We define base direction and the opening angle. Colors etc.
+  const [cx,cy]=figureCenter();
+  let target, baseDir, q={level,cx,cy};
+  if(level===1){ // acute 5..85
+    target=pick([20,25,30,35,40,45,50,55,60,65,70,75,80,85]);
+  }else if(level===2){ // obtuse 95..175
+    target=pick([95,100,110,115,120,125,130,135,140,145,150,160,165,170,175]);
+  }else if(level===3){ // short edges, any acute/obtuse
+    target=pick([35,40,55,70,110,120,135,140,150]);
+  }else if(level===4){ // straight-line split, ask the ? part
+    const known=pick([25,30,40,45,50,55,60,65,70,75,110,115,120,125,130,135,140]);
+    q.known=known; target=180-known; q.straight=true;
+  }else{ // level5 reflex 185..355 (avoid 180/360)
+    target=pick([200,210,220,225,230,240,250,260,270,280,290,300,315,320,330,340,350]);
+  }
+  q.target=target;
+
+  if(level===4){
+    // horizontal straight line through vertex; one ray goes up dividing it.
+    baseDir=0; // ray to the right (0°) and left (180°)
+    q.rayLeft=180; q.rayRight=0;
+    q.divider=q.known; // measured from right ray (0°) CCW = known angle, "?" is 180-known on left side
+    // We'll mark ? as the angle between divider and left ray.
+  }else if(level===5){
+    baseDir = pick([0,15,25,40,55,180,200,330]);
+    q.rayA=norm360(baseDir);
+    q.rayB=norm360(baseDir+target); // reflex opening measured CCW from A to B (the big side)
+  }else{
+    // ③ first question of levels 1-3: one edge horizontal (baseDir = 0)
+    if(state.qIndex===0 && (level===1||level===2||level===3)){
+      baseDir=0;
+    }else{
+      baseDir = pick([0,10,20,30,40,50,180,200,300,330]);
+    }
+    q.rayA=norm360(baseDir);
+    q.rayB=norm360(baseDir+target);
+  }
+  return q;
+}
+
+/* ================= RENDER ================= */
+let layers={};
+let pendingParts=[];   // ④ level5 tappable "?" labels, drawn above the protractor
+function clearStage(){ while(stage.firstChild) stage.removeChild(stage.firstChild); layers={}; }
+// draw the collected level-5 "?" tap labels onto the top 'parts' layer
+function drawParts(){
+  if(!layers.parts) return;
+  for(const args of pendingParts){ labelInput(layers.parts, ...args); }
+}
+
+function render(){
+  clearStage();
+  pendingParts=[];
+  const q=state.q; if(!q) return;
+  // defs (filters/markers)
+  const defs=el('defs',{});
+  defs.innerHTML=`
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="rgba(90,74,58,.25)"/>
+    </filter>
+    <radialGradient id="protFill" cx="50%" cy="100%" r="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,.16)"/>
+      <stop offset="70%" stop-color="rgba(245,247,250,.20)"/>
+      <stop offset="100%" stop-color="rgba(235,240,246,.12)"/>
+    </radialGradient>`;
+  stage.appendChild(defs);
+
+  layers.bg=el('g',{}); stage.appendChild(layers.bg);
+  layers.fig=el('g',{}); stage.appendChild(layers.fig);     // angle figure
+  layers.prot=el('g',{}); stage.appendChild(layers.prot);   // protractor
+  layers.parts=el('g',{}); stage.appendChild(layers.parts); // level5 "?" tap labels (ABOVE protractor)
+  layers.hint=el('g',{}); stage.appendChild(layers.hint);   // hint overlay (in front of protractor)
+  layers.loupe=el('g',{}); stage.appendChild(layers.loupe); // magnifier (topmost)
+
+  drawFigure();
+  if(state.prot.visible) drawProtractor();
+  drawParts();   // ④ draw the tappable "?" labels on top so they're pressable over the protractor
+  drawHint();
+  if(state.loupe) drawLoupe();
+}
+
+/* ---- the angle figure (rays + vertex + arc) ---- */
+function drawFigure(){
+  const q=state.q, g=layers.fig;
+  const cx=q.cx, cy=q.cy;
+
+  if(q.level===4){
+    // horizontal line
+    const [lx,ly]=polar(cx,cy,180,Math.min(W*0.34,260));
+    const [rx,ry]=polar(cx,cy,0,Math.min(W*0.34,260));
+    g.appendChild(el('line',{x1:lx,y1:ly,x2:rx,y2:ry,stroke:'var(--line)','stroke-width':3,'stroke-linecap':'round'}));
+    // divider ray (upward)
+    const [dx,dy]=polar(cx,cy,q.divider,Math.min(W*0.30,230));
+    g.appendChild(el('line',{x1:cx,y1:cy,x2:dx,y2:dy,stroke:'var(--coral)','stroke-width':3,'stroke-linecap':'round'}));
+    // known angle (right side, between 0° and divider)
+    drawAngleArc(g,cx,cy,0,q.divider,34,'var(--grass-dark)');
+    labelAngle(g,cx,cy,q.divider/2,58,q.known+'°','var(--grass-dark)');
+    // ? angle (left side between divider and 180)
+    drawAngleArc(g,cx,cy,q.divider,180,48,'var(--berry)');
+    labelAngle(g,cx,cy,(q.divider+180)/2,74,'?','var(--berry)',true);
+    vertexDot(g,cx,cy);
+    return;
+  }
+
+  // ③ Level-5 loupe emphasis: while the magnifier is on, shade the angle being
+  // measured (translucent pink wedge) and paint its two edges red, so it's clear
+  // which lines the loupe is reading. Drawn FIRST so the rays/arcs sit on top,
+  // and on the fig layer so it is cloned into the magnified view too.
+  // In aux mode, only draw it once the child has tapped a "?" part to choose
+  // which angle to magnify.
+  const showEmphasis = q.level===5 && state.loupe &&
+    (state.mode!=='aux' || (state.mode==='aux' && state.loupePart));
+  if(showEmphasis){ drawMeasureEmphasis(g,cx,cy); }
+
+  // generic two-ray angle (levels 1,2,3,5)
+  let len = q.level===3 ? 64 : Math.min(W*0.30,235);
+  const [ax,ay]=polar(cx,cy,q.rayA,len);
+  const [bx,by]=polar(cx,cy,q.rayB,len);
+  // extension dotted (level3 after extend)
+  const fullLen=Math.min(W*0.30,235);
+  if(q.level===3 && state.extended){
+    const [ax2,ay2]=polar(cx,cy,q.rayA,fullLen);
+    const [bx2,by2]=polar(cx,cy,q.rayB,fullLen);
+    g.appendChild(el('line',{x1:ax,y1:ay,x2:ax2,y2:ay2,stroke:'var(--grass-dark)','stroke-width':4,'stroke-dasharray':'2 9','stroke-linecap':'round'}));
+    g.appendChild(el('line',{x1:bx,y1:by,x2:bx2,y2:by2,stroke:'var(--grass-dark)','stroke-width':4,'stroke-dasharray':'2 9','stroke-linecap':'round'}));
+  }
+  g.appendChild(el('line',{x1:cx,y1:cy,x2:ax,y2:ay,stroke:'var(--line)','stroke-width':3.5,'stroke-linecap':'round'}));
+  g.appendChild(el('line',{x1:cx,y1:cy,x2:bx,y2:by,stroke:'var(--line)','stroke-width':3.5,'stroke-linecap':'round'}));
+
+  // angle arc (the side we measure: from A to B going CCW)
+  if(q.level===5){
+    pendingParts=[];   // ④ collected here, drawn after the protractor in drawParts()
+    // colors for the two split parts (⑥): kept in sync with their ? labels
+    const COL_A='var(--proto)';   // first part (rayA → aux, = 180°)
+    const COL_B='var(--berry)';   // second part (aux → rayB, = □)
+    // aux line (pattern A) — extends along ray A OR ray B (⑥)
+    if(state.mode==='aux' && state.auxAngle!=null){
+      const locked=state.auxLocked;
+      // The reflex angle is measured rayA → rayB (CCW). The auxiliary straight
+      // line splits it into a 180° part and a (target-180)° part. Which part is
+      // first depends on which ray the aux line extends:
+      //   auxBase 'A': rayA →(180°)→ aux →(□)→ rayB   → part 'a'=180, 'b'=□
+      //   auxBase 'B': rayA →(□)→ aux →(180°)→ rayB   → part 'a'=□,  'b'=180
+      if(locked){
+        // ⑥ split arc into two colored segments matching the ? labels
+        drawAngleArc(g,cx,cy,q.rayA,state.auxAngle,42,COL_A);
+        drawAngleArc(g,cx,cy,state.auxAngle,q.rayB,42,COL_B);
+      }else{
+        drawAngleArc(g,cx,cy,q.rayA,q.rayB,42,COL_B);
+      }
+      const [px,py]=polar(cx,cy,state.auxAngle,fullLen+10);
+      // when locked, the line becomes solid black to signal it's fixed straight
+      const ln=el('line',{x1:cx,y1:cy,x2:px,y2:py,
+        stroke:locked?'var(--ink)':'var(--proto)','stroke-width':locked?5:4,
+        'stroke-dasharray':locked?'none':'8 6','stroke-linecap':'round'});
+      g.appendChild(ln);
+      // handle
+      const hd=el('circle',{cx:px,cy:py,r:14,fill:locked?'var(--ink)':'var(--proto)',stroke:'#fff','stroke-width':3,filter:'url(#soft)'});
+      hd.style.cursor='grab'; hd.dataset.role='auxhandle';
+      g.appendChild(hd);
+      if(locked){
+        // lock glow + 🔒 badge on the handle
+        const glow=el('circle',{cx:px,cy:py,r:21,fill:'none',stroke:'var(--ink)','stroke-width':3,opacity:.55});
+        glow.appendChild(el('animate',{attributeName:'r',values:'18;23;18',dur:'1.2s',repeatCount:'indefinite'}));
+        g.appendChild(glow);
+        const lk=el('text',{x:px,y:py+1,'text-anchor':'middle','dominant-baseline':'central','font-size':14,fill:'#fff'});
+        lk.textContent='🔒'; lk.dataset.role='auxhandle';
+        g.appendChild(lk);
+        // ⑥ two tappable parts, colors synced with their arc segments.
+        // mid of first segment (rayA → aux) and second segment (aux → rayB):
+        const span1=norm360(state.auxAngle-q.rayA)||360;   // rayA → aux (CCW)
+        const span2=norm360(q.rayB-state.auxAngle)||360;   // aux → rayB (CCW)
+        const midA=norm360(q.rayA + span1/2);              // mid of first segment → part 'a'
+        const midB=norm360(state.auxAngle + span2/2);      // mid of second segment → part 'b'
+        pendingParts.push([cx,cy,midA,86,'a',COL_A]);
+        pendingParts.push([cx,cy,midB,86,'b',COL_B]);
+      }else{
+        // not yet split — show the reflex ? to guide
+        const mid=norm360(q.rayA + q.target/2);
+        labelAngle(g,cx,cy,mid,66,'?',COL_B,true);
+      }
+    }
+    else if(state.mode==='360'){
+      // keep the original reflex ? (the angle being asked) visible on the outer side
+      drawAngleArc(g,cx,cy,q.rayA,q.rayB,42,'var(--berry)');
+      const reflexMid=norm360(q.rayA + q.target/2);
+      labelAngle(g,cx,cy,reflexMid,66,'?','var(--berry)',true);
+      // pattern B: highlight inner angle and let child type it (⑦) — drawn on top
+      drawAngleArc(g,cx,cy,q.rayB,q.rayA,40,'#e53935',true);
+      const innerMid=norm360(q.rayB+(360-q.target)/2);
+      pendingParts.push([cx,cy,innerMid,72,'a','#e53935']);
+    }
+    else{
+      // no method chosen yet — show the reflex arc + ? so it's clear which angle is asked
+      drawAngleArc(g,cx,cy,q.rayA,q.rayB,42,'var(--berry)');
+      const mid=norm360(q.rayA + q.target/2);
+      labelAngle(g,cx,cy,mid,66,'?','var(--berry)',true);
+    }
+  }else{
+    drawAngleArc(g,cx,cy,q.rayA,q.rayB,38,'var(--coral)');
+    const mid=norm360(q.rayA+q.target/2);
+    labelAngle(g,cx,cy,mid,60,'?','var(--coral)',true);
+  }
+  vertexDot(g,cx,cy);
+}
+
+function vertexDot(g,cx,cy){
+  g.appendChild(el('circle',{cx,cy,r:7,fill:'#fff',stroke:'var(--line)','stroke-width':3}));
+  g.appendChild(el('circle',{cx,cy,r:2.5,fill:'var(--line)'}));
+}
+
+/* ③ Highlight the angle currently being measured (level 5, loupe on):
+   a translucent pink wedge between its two boundary lines + red edge overlays. */
+function drawMeasureEmphasis(g,cx,cy){
+  const b=measuredBoundaries(); if(!b) return;
+  const len=Math.min(W*0.30,235);
+  // wedge: vertex → along start edge → sampled arc to end edge → back to vertex
+  let span=norm360(b.end-b.start); if(span===0)span=360;
+  const r=len;
+  const steps=Math.max(2,Math.ceil(span/4));
+  let d=`M ${cx.toFixed(2)} ${cy.toFixed(2)} `;
+  for(let i=0;i<=steps;i++){
+    const a=b.start+span*(i/steps);
+    const [x,y]=polar(cx,cy,a,r);
+    d+='L '+x.toFixed(2)+' '+y.toFixed(2)+' ';
+  }
+  d+='Z';
+  const wedge=el('path',{d,fill:'var(--hint)',opacity:.28,stroke:'none'});
+  g.appendChild(wedge);
+  // red edge overlays on the two boundary lines
+  const RED='#e23b2e';
+  [b.start,b.end].forEach(ang=>{
+    const [px,py]=polar(cx,cy,ang,len);
+    g.appendChild(el('line',{x1:cx,y1:cy,x2:px,y2:py,stroke:RED,'stroke-width':5,
+      'stroke-linecap':'round',opacity:.9}));
+  });
+}
+function drawAngleArc(g,cx,cy,from,to,r,color,red){
+  // arc from 'from' to 'to' going CCW (increasing angle)
+  let span=norm360(to-from); if(span===0)span=360;
+  const steps=Math.max(2,Math.ceil(span/4));
+  let d='';
+  for(let i=0;i<=steps;i++){
+    const a=from+span*(i/steps);
+    const [x,y]=polar(cx,cy,a,r);
+    d+=(i===0?'M':'L')+x.toFixed(2)+' '+y.toFixed(2)+' ';
+  }
+  const p=el('path',{d,fill:'none',stroke:color,'stroke-width':red?7:4,'stroke-linecap':'round',opacity:red?.55:.9});
+  g.appendChild(p);
+}
+function labelAngle(g,cx,cy,deg,r,txt,color,big){
+  const [x,y]=polar(cx,cy,deg,r);
+  const t=el('text',{x,y:y+1,'text-anchor':'middle','dominant-baseline':'central',
+    'font-family':'Zen Maru Gothic','font-weight':900,'font-size':big?30:20,fill:color});
+  t.textContent=txt;
+  // little white halo
+  const t2=el('text',{x,y:y+1,'text-anchor':'middle','dominant-baseline':'central',
+    'font-family':'Zen Maru Gothic','font-weight':900,'font-size':big?30:20,fill:'none',stroke:'#fff','stroke-width':5,'stroke-linejoin':'round'});
+  t2.textContent=txt;
+  g.appendChild(t2); g.appendChild(t);
+}
+
+/* tappable angle "?" input (level5 ⑥⑦). part = 'a' | 'b'.
+   Shows the typed value or "?"; tapping selects it so the keypad types here. */
+function labelInput(g,cx,cy,deg,r,part,color){
+  const [x,y]=polar(cx,cy,deg,r);
+  const val=state.partInputs[part];
+  const active=(state.activePart===part);
+  const txt = val!=="" ? val+'°' : '?';
+  const w = Math.max(46, txt.length*16+22), h=34;
+  const grp=el('g',{});
+  grp.style.cursor='pointer';
+  grp.dataset.role='partlabel'; grp.dataset.part=part;
+  const rect=el('rect',{x:x-w/2,y:y-h/2,width:w,height:h,rx:11,
+    fill:active?color:'#fff',stroke:color,'stroke-width':active?3:2.5,
+    filter:'url(#soft)'});
+  grp.appendChild(rect);
+  const t=el('text',{x,y:y+1,'text-anchor':'middle','dominant-baseline':'central',
+    'font-family':'Zen Maru Gothic','font-weight':900,'font-size':20,
+    fill:active?'#fff':color});
+  t.textContent=txt;
+  grp.appendChild(t);
+  // a little tap hint when empty & not active
+  if(val==="" && !active){
+    const hint=el('text',{x,y:y+h/2+12,'text-anchor':'middle','dominant-baseline':'central',
+      'font-size':10,'font-weight':700,fill:color});
+    hint.textContent='タップ';
+    grp.appendChild(hint);
+  }
+  g.appendChild(grp);
+}
+
+/* ④① Decide which number ring the child should read for the hint band, and
+   over which angular sweep it should be drawn.
+
+   The protractor's baseline has two ends:
+     local 0°   = the right end (rotate-handle end) → reads the OUTER black scale
+                  going CCW (up over the top to the left).
+     local 180° = the left end                       → reads the INNER red scale.
+   A protractor end laid on a "start" boundary reads the angle swept toward the
+   "end" boundary on whichever scale increases in that direction.
+
+   This returns the two boundary directions of the angle the child is currently
+   measuring (start → end, CCW), so the hint band can be drawn ONLY across that
+   span (not the whole 0–180 ring) — pointing right at the numbers to read. */
+function measuredBoundaries(){
+  const q=state.q;
+  if(!q) return null;
+  // Levels 1–3: the angle is rayA → rayB.
+  if(q.level!==5) return {start:q.rayA, end:q.rayB};
+  // Level 5, 360 mode: the inner (small) angle is rayB → rayA.
+  if(state.mode==='360') return {start:q.rayB, end:q.rayA};
+  // Level 5, aux mode (locked): the angle depends on which "?" part is selected.
+  if(state.mode==='aux' && state.auxLocked && state.auxAngle!=null){
+    const aux=norm360(state.auxAngle);
+    // part 'a' = rayA → aux ; part 'b' = aux → rayB.
+    // When the loupe is on, the magnified part (loupePart) takes priority;
+    // otherwise fall back to the keypad-selected part. Default to 'a'.
+    const part = (state.loupe && state.loupePart) || state.activePart || 'a';
+    if(part==='a') return {start:q.rayA, end:aux};
+    return {start:aux, end:q.rayB};
+  }
+  return {start:q.rayA, end:q.rayB};
+}
+
+/* Returns true when the OUTER (black) ring is the one to read for the angle
+   given by measuredBoundaries(), based on the protractor's current rotation.
+   The end of the baseline that sits on the "start" boundary determines the ring:
+   right end (local 0°, = p.rot) → outer black; left end (local 180°) → inner red. */
+function whichScale(){
+  const q=state.q, p=state.prot;
+  if(!q) return true;
+  const b=measuredBoundaries(); if(!b) return true;
+  // Which baseline end is aligned with the START boundary?
+  const gap0  =Math.abs(((p.rot      - b.start+540)%360)-180); // right end (0°)
+  const gap180=Math.abs(((p.rot+180  - b.start+540)%360)-180); // left end (180°)
+  // start on the right (0°) end → read outer black; on left (180°) end → inner red.
+  return gap0<=gap180;
+}
+
+/* ---- PROTRACTOR (semicircle, draggable + rotatable) ---- */
+const PR=205; // protractor radius in user units (enlarged ~1.35x)
+function protRadius(){ return Math.min(PR, W*0.42, H*0.46); }
+
+function drawProtractor(){
+  const g=layers.prot, p=state.prot, R=protRadius();
+  // Colors matched to the reference protractor (分度器画像２):
+  //  - body lines / ticks / outer numbers : BLACK
+  //  - inner reversed scale + 90 + center : RED
+  const INK='#2b2b2b', RED='#e23b2e';
+  // The flat plastic edge of a real protractor sits a little BELOW the 0–180
+  // scale line. We model that margin: local origin (0,0) = the angle vertex,
+  // which sits on the 0–180 scale line; the physical bottom edge is at +EDGE.
+  const EDGE=Math.round(R*0.085);   // plastic margin below the scale line
+  // group transform: translate to center (vertex), rotate by p.rot (screen deg, CCW). SVG rotate is CW+ so negate.
+  const grp=el('g',{transform:`translate(${p.x},${p.y}) rotate(${-p.rot})`});
+  grp.dataset.role='prot'; grp.style.cursor=p.vlock?'grab':'move';
+
+  // body: half disc bulging upward (-Y) plus a thin rectangular base strip down
+  // to the flat physical edge at +EDGE, with rounded bottom corners.
+  const body=el('path',{
+    d:`M ${-R} 0 A ${R} ${R} 0 0 1 ${R} 0 L ${R} ${EDGE-4} Q ${R} ${EDGE} ${R-4} ${EDGE} L ${-R+4} ${EDGE} Q ${-R} ${EDGE} ${-R} ${EDGE-4} Z`,
+    fill:'url(#protFill)',stroke:INK,'stroke-width':2,opacity:.97,filter:'url(#soft)'});
+  grp.appendChild(body);
+
+  // concentric reference arcs (printed black bands of the protractor)
+  const ringRs=[R-2, R-20, R-40, R-58];
+  ringRs.forEach((rr,idx)=>{
+    grp.appendChild(el('path',{d:`M ${-rr} 0 A ${rr} ${rr} 0 0 1 ${rr} 0`,
+      fill:'none',stroke:INK,'stroke-width':idx===0?1.4:0.9,opacity:.8}));
+  });
+
+  // radial spokes every 10° (between inner hole and the tick band)
+  const holeR=R*0.20;
+  for(let a=0;a<=180;a+=10){
+    const ang=a*D2R;
+    const xi=Math.cos(ang)*(holeR), yi=-Math.sin(ang)*(holeR);
+    const xo=Math.cos(ang)*(R-40), yo=-Math.sin(ang)*(R-40);
+    grp.appendChild(el('line',{x1:xi,y1:yi,x2:xo,y2:yo,stroke:INK,'stroke-width':0.7,opacity:.5}));
+  }
+
+  // ticks: 1° small, 5° medium, 10° long — drawn just inside the outer arc.
+  // The tick band lives between R and the first inner ring, matching the photo.
+  for(let a=0;a<=180;a+=1){
+    const ang=a*D2R;
+    const x1=Math.cos(ang)*(R-2), y1=-Math.sin(ang)*(R-2);
+    let inner=R-8;
+    if(a%10===0)inner=R-20; else if(a%5===0)inner=R-14;
+    const x2=Math.cos(ang)*inner, y2=-Math.sin(ang)*inner;
+    grp.appendChild(el('line',{x1,y1,x2,y2,stroke:INK,'stroke-width':a%10===0?1.4:0.6,opacity:.92}));
+  }
+
+  // numbers. Reference layout:
+  //   OUTER ring  = BLACK, reads 0(left) → 90(top) → 180(right)
+  //   INNER ring  = RED,   reads 180(left) → 90(top) → 0(right)
+  //   the top "90" is large and RED.
+  const trB=R-31;   // outer (black) number radius
+  const trR=R-48;   // inner (red) number radius
+
+  // ④③ HINT: flash a pink band over the ring of numbers the child should read.
+  // Levels 1–3 align ray A to local 0° and read ray B on the outer scale.
+  // ③ Level 5 also benefits: once the protractor is on the figure (360 mode, or
+  // after the auxiliary line is locked) we highlight the ring that the child
+  // should read, exactly like the earlier levels.
+  const showBand = state.hint && state.q && state.q.level!==4 &&
+        (state.q.level!==5 ? true : (state.q.level===5 && (state.mode==='360' || (state.mode==='aux' && state.auxLocked))));
+  if(showBand){
+    const useOuter = whichScale();       // true → outer black ring, false → inner red ring
+    const bandR = useOuter ? trB : trR;  // radius of the number ring to cover
+    const bw = 15;                       // band thickness (kept snug to one ring)
+    // ① Highlight ONLY the part of the ring the child should read: the arc that
+    // spans the measured angle. We work in the protractor's LOCAL frame (grp is
+    // rotated by -p.rot), where local angle = screen-angle - p.rot. The reading
+    // runs from the baseline end on the START boundary, across the angle, to the
+    // END boundary. Local angles map onto the printed scale (0° at right end).
+    const b=measuredBoundaries();
+    let d;
+    if(b){
+      // local screen-CCW angles of the two boundaries (0..360 from local right)
+      let ls=norm360(b.start - p.rot);
+      let le=norm360(b.end   - p.rot);
+      // pick the boundary lying on the 0–180 printed semicircle as the sweep ends
+      // and draw the arc across the measured span on the upper half.
+      // Clamp both onto [0,180] (the visible scale half) and sweep between them.
+      const a0=clamp(ls>180?360-ls:ls, 0, 180);
+      const a1=clamp(le>180?360-le:le, 0, 180);
+      const lo=Math.min(a0,a1), hi=Math.max(a0,a1);
+      const steps=Math.max(2,Math.ceil((hi-lo)/3));
+      d='';
+      for(let i=0;i<=steps;i++){
+        const ang=(lo+(hi-lo)*(i/steps))*D2R;
+        const x=Math.cos(ang)*bandR, y=-Math.sin(ang)*bandR;
+        d+=(i===0?'M':'L')+x.toFixed(2)+' '+y.toFixed(2)+' ';
+      }
+    }else{
+      d=`M ${-bandR} 0 A ${bandR} ${bandR} 0 0 1 ${bandR} 0`;
+    }
+    const band=el('path',{
+      d,fill:'none',stroke:'var(--hint)','stroke-width':bw,
+      'stroke-linecap':'round',opacity:.5});
+    band.appendChild(el('animate',{attributeName:'opacity',
+      values:'0;.7;.7;0',dur:'1.1s',repeatCount:'indefinite'}));
+    grp.appendChild(band);
+  }
+
+  for(let a=0;a<=180;a+=10){
+    const ang=a*D2R;
+    const isTop=(a===90);
+    // OUTER black number (value = a)
+    const bx=Math.cos(ang)*trB, by=-Math.sin(ang)*trB;
+    const tb=el('text',{x:bx,y:by,'text-anchor':'middle','dominant-baseline':'central',
+      'font-family':'Arial, sans-serif',
+      'font-size':isTop?(R>150?18:14):(R>150?11:9),
+      'font-weight':isTop?900:700, fill:isTop?RED:INK});
+    tb.textContent=a; tb.setAttribute('transform',`rotate(${p.rot} ${bx} ${by})`);
+    grp.appendChild(tb);
+    // INNER red number (value = 180-a). Skip 90 here (the big red 90 already shown above).
+    if(!isTop){
+      const rx=Math.cos(ang)*trR, ry=-Math.sin(ang)*trR;
+      const tr=el('text',{x:rx,y:ry,'text-anchor':'middle','dominant-baseline':'central',
+        'font-family':'Arial, sans-serif','font-size':R>150?10:8,'font-weight':700,fill:RED});
+      tr.textContent=180-a; tr.setAttribute('transform',`rotate(${p.rot} ${rx} ${ry})`);
+      grp.appendChild(tr);
+    }
+  }
+
+  // inner blank semicircle (the central "window")
+  grp.appendChild(el('path',{d:`M ${-holeR} 0 A ${holeR} ${holeR} 0 0 1 ${holeR} 0`,
+    fill:'rgba(255,255,255,.55)',stroke:INK,'stroke-width':1.2,opacity:.85}));
+
+  // 0–180 scale line (the prominent baseline that runs through the vertex)
+  grp.appendChild(el('line',{x1:-R,y1:0,x2:R,y2:0,stroke:INK,'stroke-width':2.2}));
+
+  // "0 / 180" end labels at both ends: black only (red bottom labels removed)
+  const fsEnd=R>150?11:9;
+  // left end:  black 0
+  endLabel(grp,-R+13,'0',INK,-fsEnd*0.7,fsEnd,p.rot);
+  // right end: black 180
+  endLabel(grp, R-13,'180',INK,-fsEnd*0.7,fsEnd,p.rot);
+
+  // center mark (the rotation center / vertex — matches the blue circle in the markup).
+  // It sits on the 0–180 line at the middle: a small red cross + ring.
+  const cm=el('g',{});
+  cm.appendChild(el('line',{x1:-14,y1:0,x2:14,y2:0,stroke:RED,'stroke-width':1.6}));
+  cm.appendChild(el('line',{x1:0,y1:-10,x2:0,y2:10,stroke:RED,'stroke-width':1.6}));
+  cm.appendChild(el('circle',{cx:0,cy:0,r:3,fill:'none',stroke:RED,'stroke-width':1.6}));
+  cm.appendChild(el('circle',{cx:0,cy:0,r:1.4,fill:RED}));
+  grp.appendChild(cm);
+
+  // rotation handle (when vertex-locked) at right end of baseline
+  if(p.vlock){
+    // larger, easier-to-grab handle. An invisible wide hit-pad makes the touch
+    // target generous so the protractor doesn't accidentally unlock.
+    const pad=el('circle',{cx:R-3,cy:0,r:34,fill:'transparent'});
+    pad.dataset.role='rotate'; pad.style.cursor='grab';
+    grp.appendChild(pad);
+    const hub=el('circle',{cx:R-3,cy:0,r:18,fill:'var(--sun)',stroke:'#fff','stroke-width':3.5,filter:'url(#soft)'});
+    hub.dataset.role='rotate'; hub.style.cursor='grab';
+    grp.appendChild(hub);
+    const rot=el('text',{x:R-3,y:1,'text-anchor':'middle','dominant-baseline':'central','font-size':18,'font-weight':900,fill:'#fff'});
+    rot.textContent='↻'; rot.dataset.role='rotate';
+    rot.setAttribute('transform',`rotate(${p.rot} ${R-3} 0)`);
+    grp.appendChild(rot);
+  }
+
+  // lock indicators
+  if(p.vlock){
+    grp.appendChild(el('circle',{cx:0,cy:0,r:14,fill:'none',stroke:'var(--grass-dark)','stroke-width':3,opacity:.8}));
+  }
+  g.appendChild(grp);
+}
+// helper: an end-of-baseline number label, kept upright via counter-rotation
+function endLabel(grp,xx,txt,fill,dy,fs,rot){
+  const t=el('text',{x:xx,y:dy,'text-anchor':'middle','dominant-baseline':'central',
+    'font-family':'Arial, sans-serif','font-size':fs,'font-weight':700,fill});
+  t.textContent=txt; t.setAttribute('transform',`rotate(${rot} ${xx} ${dy})`);
+  grp.appendChild(t);
+}
+
+/* ---- HINT overlay ---- */
+function drawHint(){
+  if(!state.hint) return;
+  const q=state.q, g=layers.hint, cx=q.cx, cy=q.cy;
+  if(q.level===4){
+    // big half arc over the straight line + "180°"
+    const R=Math.min(W*0.30,210);
+    drawAngleArc(g,cx,cy,0,180,R,'var(--hint)');
+    const [tx,ty]=polar(cx,cy,90,R+8);
+    const t=el('text',{x:tx,y:ty,'text-anchor':'middle','font-size':30,'font-weight':900,fill:'var(--hint)',stroke:'#fff','stroke-width':5,'paint-order':'stroke'});
+    t.textContent='180°'; g.appendChild(t);
+    const pulse=el('animate',{attributeName:'opacity',values:'0;1;1;0.4',dur:'1.6s',repeatCount:'indefinite'});
+    t.appendChild(pulse);
+    return;
+  }
+  if(q.level===5){
+    const len=Math.min(W*0.30,235);
+    if(state.mode==='aux'){
+      if(state.auxLocked){
+        // ③ once locked, the pink number band on the protractor guides the read;
+        // just keep a soft glow on the locked straight line.
+        const [ex,ey]=polar(cx,cy,state.auxAngle,len+10);
+        const glow=el('line',{x1:cx,y1:cy,x2:ex,y2:ey,stroke:'var(--hint)','stroke-width':11,'stroke-linecap':'round',opacity:.4});
+        glow.appendChild(el('animate',{attributeName:'opacity',values:'.2;.6;.2',dur:'1.3s',repeatCount:'indefinite'}));
+        g.appendChild(glow);
+      }else{
+        // ⑥ guide: either ray can be extended straight — flash BOTH extensions.
+        const extA=norm360(q.rayA+180), extB=norm360(q.rayB+180);
+        [extA,extB].forEach(ext=>{
+          const [ex,ey]=polar(cx,cy,ext,len+10);
+          const glow=el('line',{x1:cx,y1:cy,x2:ex,y2:ey,stroke:'var(--hint)','stroke-width':11,'stroke-linecap':'round',opacity:.4});
+          glow.appendChild(el('animate',{attributeName:'opacity',values:'.2;.6;.2',dur:'1.3s',repeatCount:'indefinite'}));
+          g.appendChild(glow);
+        });
+        const [tx,ty]=polar(cx,cy,extA,len*0.55);
+        hintTag(g,tx,ty,'まっすぐ 180°');
+      }
+    }else if(state.mode==='360'){
+      // guide: highlight the inner (small) angle to measure, label 360−□
+      const innerMid=norm360(q.rayB+(360-q.target)/2);
+      drawAngleArc(g,cx,cy,q.rayB,q.rayA,58,'var(--hint)');
+      const [tx,ty]=polar(cx,cy,innerMid,86);
+      hintTag(g,tx,ty,'360 − □');
+    }else{
+      // no method chosen yet — nudge to pick one
+      const [tx,ty]=polar(cx,cy,norm360(q.rayA+q.target/2),96);
+      hintTag(g,tx,ty,'ほうほうを えらぼう');
+    }
+    return;
+  }
+  // levels 1,2,3 : highlight the 0-line (one ray) and measuring direction
+  const len=Math.min(W*0.30,235);
+  const [ax,ay]=polar(cx,cy,q.rayA,len);
+  const glow=el('line',{x1:cx,y1:cy,x2:ax,y2:ay,stroke:'var(--hint)','stroke-width':11,'stroke-linecap':'round',opacity:.45});
+  glow.appendChild(el('animate',{attributeName:'opacity',values:'.2;.6;.2',dur:'1.3s',repeatCount:'indefinite'}));
+  g.appendChild(glow);
+  // "0°から" tag — placed beside the edge (on the side away from the angle opening), not overlapping it
+  const [bx0,by0]=polar(cx,cy,q.rayA,len*0.6);
+  const offDir=norm360(q.rayA-90); // perpendicular, opposite the opening side
+  const [ox,oy]=polar(0,0,offDir,24);
+  const tx=bx0+ox, ty=by0+oy;
+  const tag=el('g',{});
+  const tg=el('rect',{x:tx-26,y:ty-13,width:52,height:22,rx:8,fill:'var(--hint)'});
+  tag.appendChild(tg);
+  const tt=el('text',{x:tx,y:ty+1,'text-anchor':'middle','dominant-baseline':'central','font-size':12,'font-weight':900,fill:'#fff'});
+  tt.textContent='0°から'; tag.appendChild(tt);
+  g.appendChild(tag);
+  // ① pink measuring arc with an OUTWARD-pointing arrowhead at BOTH ends
+  // (the single directional sweep arrow has been removed).
+  const r=52;
+  drawAngleArc(g,cx,cy,q.rayA,q.rayB,r,'var(--hint)');
+  drawArcEndArrow(g,cx,cy,q.rayA,r,true);   // start end → points outward (CW, away from sweep)
+  drawArcEndArrow(g,cx,cy,q.rayB,r,false);  // end end   → points outward (CCW, away from sweep)
+}
+
+/* ① draw a small arrowhead at one end of the pink hint arc, pointing OUTWARD
+   (tangent to the arc, away from the measured span). atStart=true → the rayA
+   end (sweep increases CCW, so outward = clockwise/tangent-back); atStart=false
+   → the rayB end (outward = continue CCW). */
+function drawArcEndArrow(g,cx,cy,deg,r,atStart){
+  const [px,py]=polar(cx,cy,deg,r);
+  // tangent direction along the arc at this point (screen, y-down):
+  // arc is parameterised by increasing angle CCW; tangent (CCW) = (sin? ...).
+  // outward at the start end = -tangent (CCW) ; at the end = +tangent (CCW).
+  const sign = atStart ? +1 : -1;            // rotate the heading off the radial
+  const head = norm360(deg + sign*90);        // tangent direction, pointing outward
+  const ah=14;                                // arrowhead size
+  // tip slightly beyond the arc point, along the tangent
+  const [tipx,tipy]=polar(px,py,head,8);
+  const left =norm360(head+150), right=norm360(head-150);
+  const [lx2,ly2]=polar(tipx,tipy,left,ah);
+  const [rx2,ry2]=polar(tipx,tipy,right,ah);
+  const tri=el('path',{d:`M ${tipx.toFixed(2)} ${tipy.toFixed(2)} L ${lx2.toFixed(2)} ${ly2.toFixed(2)} L ${rx2.toFixed(2)} ${ry2.toFixed(2)} Z`,
+    fill:'var(--hint)',stroke:'none'});
+  g.appendChild(tri);
+}
+
+/* small pink pill label used by level-5 hints */
+function hintTag(g,x,y,txt){
+  const w=Math.max(64, txt.length*11+20);
+  const tag=el('g',{});
+  tag.appendChild(el('rect',{x:x-w/2,y:y-13,width:w,height:24,rx:9,fill:'var(--hint)',filter:'url(#soft)'}));
+  const tt=el('text',{x,y:y-1,'text-anchor':'middle','dominant-baseline':'central','font-size':12,'font-weight':900,fill:'#fff'});
+  tt.textContent=txt; tag.appendChild(tt);
+  const pulse=el('animate',{attributeName:'opacity',values:'.4;1;.4',dur:'1.4s',repeatCount:'indefinite'});
+  tag.appendChild(pulse);
+  g.appendChild(tag);
+}
+
+/* ---- LOUPE ---- */
+function drawLoupe(){
+  // Magnify the OUTER edge of the protractor where the measured angle's far
+  // boundary crosses the tick band and printed numbers — that's exactly the
+  // value the child should read. ⑥⑦
+  const q=state.q; if(q.level===4){return;}
+  const p=state.prot; const R=protRadius();
+  let fx,fy;
+  // The edge to read = the boundary of the measured angle that is NOT laid on
+  // the protractor's 0° baseline. The baseline has two physical ends: the right
+  // end (local 0° = p.rot) and the left end (local 180° = p.rot+180). The child
+  // lays ONE end on one boundary as the "0° line"; the value is then read off
+  // the OTHER boundary. So we magnify whichever boundary sits FURTHER from both
+  // baseline ends (i.e. the one the 0° line is not aligned with).
+  const b=measuredBoundaries();
+  let edge = b ? b.end : q.rayB;
+  if(b && p.visible){
+    // angular gap of each boundary to the nearest baseline end (right or left)
+    const gapTo=(boundary)=>{
+      const g0  =Math.abs(((p.rot     - boundary+540)%360)-180); // right end (0°)
+      const g180=Math.abs(((p.rot+180 - boundary+540)%360)-180); // left end (180°)
+      return Math.min(g0,g180);
+    };
+    const gs=gapTo(b.start), ge=gapTo(b.end);
+    // the boundary closest to a baseline end is the "0° line"; magnify the other.
+    edge = (gs<=ge) ? b.end : b.start;
+  }else if(q.level===5 && state.mode==='aux' && state.auxLocked && state.auxAngle!=null){
+    // protractor not yet placed in aux mode: fall back to the non-auxiliary edge
+    const part = (state.loupe && state.loupePart) || state.activePart || 'a';
+    edge = (part==='a') ? q.rayA : q.rayB;
+  }
+  if(p.visible){
+    [fx,fy]=polar(q.cx,q.cy,edge, R-26);                 // scale band of the protractor
+  }else{
+    [fx,fy]=polar(q.cx,q.cy,edge, Math.min(W*0.30,235)-20);
+  }
+  const g=layers.loupe;
+  const lr=Math.round(Math.min(112, W*0.20, H*0.26)); // bigger lens (was 72)
+  // ④ Position the lens on the SAME side as the scale point being magnified:
+  // if the reading edge is on the right half of the protractor, show the lens to
+  // the right; if on the left half, show it to the left. Centre of reference is
+  // the protractor vertex (p.x) when visible, else the figure vertex (q.cx).
+  let lx, ly;
+  const centerX = p.visible ? p.x : q.cx;
+  const onRight = fx >= centerX;            // which side the magnified point sits
+  if(p.visible){
+    lx = onRight ? (p.x + R + lr + 18)      // clear of the right edge
+                 : (p.x - R - lr - 18);     // clear of the left edge
+    ly = clamp(p.y - R*0.45, lr+14, H-lr-14);
+  }else{
+    lx = onRight ? clamp(q.cx + 170, lr+14, W-lr-14)
+                 : clamp(q.cx - 170, lr+14, W-lr-14);
+    ly = clamp(q.cy, lr+14, H-lr-14);
+  }
+  // keep on-screen
+  if(lx > W-lr-8) lx = W-lr-8;
+  if(lx < lr+8) lx = lr+8;
+  ly = clamp(ly, lr+8, H-lr-8);
+  const k=3.0; // zoom (was 2.6) — show the fine 1° ticks clearly
+  // clip
+  const clip=el('clipPath',{id:'loupeClip'});
+  clip.appendChild(el('circle',{cx:lx,cy:ly,r:lr}));
+  g.appendChild(clip);
+  const inner=el('g',{'clip-path':'url(#loupeClip)'});
+  // background
+  inner.appendChild(el('circle',{cx:lx,cy:ly,r:lr,fill:'#fff'}));
+  // cloned figure+protractor scaled around focus
+  const tg=el('g',{transform:`translate(${lx},${ly}) scale(${k}) translate(${-fx},${-fy})`});
+  tg.appendChild(layers.fig.cloneNode(true));
+  if(p.visible) tg.appendChild(layers.prot.cloneNode(true));
+  inner.appendChild(tg);
+  g.appendChild(inner);
+  // ring
+  g.appendChild(el('circle',{cx:lx,cy:ly,r:lr,fill:'none',stroke:'var(--sun-dark)','stroke-width':7}));
+  g.appendChild(el('circle',{cx:lx,cy:ly,r:lr,fill:'none',stroke:'#fff','stroke-width':2.5}));
+  // handle
+  const [hx,hy]=[lx-lr*0.72,ly+lr*0.72];
+  g.appendChild(el('line',{x1:hx,y1:hy,x2:hx-26,y2:hy+26,stroke:'var(--sun-dark)','stroke-width':11,'stroke-linecap':'round'}));
+}
+
+/* ================= INTERACTION (drag / rotate / snap) ================= */
+function svgPoint(evt){
+  const r=stage.getBoundingClientRect();
+  const t=evt.touches?evt.touches[0]:evt;
+  return [(t.clientX-r.left), (t.clientY-r.top)];
+}
+const SNAP_V=34, SNAP_E=8; // snap thresholds
+
+function pointerDown(e){
+  const role0=e.target.dataset?.role || e.target.parentNode?.dataset?.role;
+  // ⑥⑦ level5: tap a "?" angle label. It selects the part for keypad input AND,
+  // when the loupe is on, automatically magnifies the correct scale for that
+  // part (no more tapping the protractor scale directly).
+  if(role0==='partlabel'){
+    const part=e.target.dataset?.part || e.target.parentNode?.dataset?.part;
+    state.activePart = (state.activePart===part)? null : part;
+    // ⑦ if the loupe is on, magnify the scale that reads THIS part automatically.
+    if(state.level===5 && state.loupe && state.activePart===part){
+      state.loupePart=part;          // measuredBoundaries()/drawLoupe use this
+      state.loupeFocus=null;
+      helpnote('この 角の 目もりを 拡大したよ。分度器の 数字を よんで「？」に 入力しよう');
+    }
+    render();
+    e.preventDefault();
+    return;
+  }
+  if(!state.prot.visible && state.mode!=='aux') {return;}
+  const [mx,my]=svgPoint(e);
+  const role=role0;
+  // ⑦ The old "tap the protractor scale to magnify" behaviour has been removed.
+  // In level 5 the loupe is driven entirely by which "?" part is selected.
+  // level5 aux handle
+  if(role==='auxhandle' && state.mode==='aux'){
+    state.drag={type:'aux'}; e.preventDefault(); return;
+  }
+  if(role==='rotate' && state.prot.vlock){
+    state.drag={type:'rotate'}; e.preventDefault(); return;
+  }
+  // Extra safety: when vertex-locked, a tap anywhere near the rotation handle
+  // position should rotate (not unlock). This widens the effective hit area so
+  // the protractor doesn't slip off the vertex.
+  if(state.prot.vlock){
+    const p=state.prot, R=protRadius();
+    const [hx,hy]=polar(p.x,p.y,p.rot,R-3); // handle is at baseline right end, rotated
+    if(dist(mx,my,hx,hy)<42){
+      state.drag={type:'rotate'}; e.preventDefault(); return;
+    }
+  }
+  if(state.prot.visible){
+    // hit test protractor (within radius of its center, on the disc)
+    const p=state.prot, R=protRadius();
+    const d=dist(mx,my,p.x,p.y);
+    if(d<R+16){
+      // dragging the body always moves; the rotate handle (checked above) rotates.
+      // Even when vertex-locked, a body drag lets the user pull it off the vertex.
+      state.drag={type:'move',dx:mx-p.x,dy:my-p.y};
+      e.preventDefault();
+    }
+  }
+}
+function pointerMove(e){
+  if(!state.drag) return;
+  e.preventDefault();
+  const [mx,my]=svgPoint(e), q=state.q, p=state.prot;
+  if(state.drag.type==='move'){
+    p.x=mx-state.drag.dx; p.y=my-state.drag.dy;
+    p.vlock=false; p.elock=false;
+    // snap center to vertex
+    if(dist(p.x,p.y,q.cx,q.cy)<SNAP_V){
+      p.x=q.cx; p.y=q.cy; p.vlock=true; pulseLock(q.cx,q.cy); haptic();
+    }
+    render();
+  }else if(state.drag.type==='rotate'){
+    // rotate so baseline aligns toward pointer
+    let a=angleOf(p.x,p.y,mx,my);
+    p.rot=a;
+    p.elock=false;
+    // candidate snap directions for the baseline (0–180 line).
+    // ④ The baseline is symmetric: either END (right 0° handle or left 180° end)
+    // can be laid along a ray. So for every ray we allow snapping p.rot to the
+    // ray direction OR to its 180° opposite — the protractor locks on either side.
+    let snaps=[q.rayA, norm360(q.rayA+180), q.rayB, norm360(q.rayB+180)];
+    // ⑧ in level-5 aux mode, also snap & lock onto the locked auxiliary straight
+    // line (its direction and 180° opposite are already covered via rayA above,
+    // but include explicitly for clarity).
+    if(state.level===5 && state.mode==='aux' && state.auxLocked){
+      snaps=[q.rayA, norm360(q.rayA+180), q.rayB, norm360(q.rayB+180)];
+    }
+    for(const ray of snaps){
+      let diff=Math.abs(((p.rot-ray+540)%360)-180);
+      if(diff<SNAP_E){ p.rot=ray; p.elock=true; }
+    }
+    render();
+  }else if(state.drag.type==='aux'){
+    let a=angleOf(q.cx,q.cy,mx,my);
+    // ⑥ Two valid straight extensions: along ray A or along ray B.
+    // Snap to whichever the child is dragging closest to.
+    const targetA=norm360(q.rayA+180);   // straight 180° extension of ray A
+    const targetB=norm360(q.rayB+180);   // straight 180° extension of ray B
+    const diffA=Math.abs(((a-targetA+540)%360)-180);
+    const diffB=Math.abs(((a-targetB+540)%360)-180);
+    const useA = diffA<=diffB;
+    const targetLine = useA ? targetA : targetB;
+    const diff = useA ? diffA : diffB;
+    const wasLocked=state.auxLocked;
+    // hysteresis: easy to grab (within SNAP_AUX), but stays locked until pulled
+    // well away (RELEASE_AUX) so it doesn't jitter off the straight line.
+    const SNAP_AUX=9, RELEASE_AUX=16;
+    if(diff < (wasLocked?RELEASE_AUX:SNAP_AUX)){
+      state.auxAngle=targetLine; state.auxLocked=true;
+      state.auxBase = useA ? 'A' : 'B';
+    }else{
+      state.auxAngle=a; state.auxLocked=false;
+    }
+    // run the "just locked" side-effects only on the transition into lock
+    if(state.auxLocked && !wasLocked){
+      haptic();
+      pulseLock(q.cx,q.cy);
+      showMemo();
+      // ⑤ Bring the protractor in at a spot that does NOT overlap the figure,
+      // UNLOCKED, so the child has to drag & drop it onto the vertex (just like
+      // level 1) before measuring the remaining (180 + □) part.
+      const p2=state.prot, R=protRadius();
+      p2.visible=true; p2.vlock=false; p2.elock=false; p2.rot=0;
+      // park it in a clear corner away from the vertex/figure
+      p2.x=clamp(W-R-20, R+20, W-R-20);
+      p2.y=clamp(R+30, R+20, H-30);
+      if(dist(p2.x,p2.y,q.cx,q.cy) < R+60){ p2.y=clamp(H-40, R+20, H-30); }
+      helpnote('点線が まっすぐに ロックされたよ！分度器を ちょうてんに あわせて（ドラッグ）、2つの「？」を タップして 入力しよう（180 + □）');
+    }
+    render();
+  }
+}
+function pointerUp(){ state.drag=null; }
+
+stage.addEventListener('mousedown',pointerDown);
+window.addEventListener('mousemove',pointerMove);
+window.addEventListener('mouseup',pointerUp);
+stage.addEventListener('touchstart',pointerDown,{passive:false});
+window.addEventListener('touchmove',pointerMove,{passive:false});
+window.addEventListener('touchend',pointerUp);
+
+function pulseLock(x,y){
+  const c=el('circle',{cx:x,cy:y,r:10,fill:'none',stroke:'var(--grass-dark)','stroke-width':4});
+  c.appendChild(el('animate',{attributeName:'r',values:'10;40',dur:'.5s',fill:'freeze'}));
+  c.appendChild(el('animate',{attributeName:'opacity',values:'.9;0',dur:'.5s',fill:'freeze'}));
+  layers.hint.appendChild(c);
+  setTimeout(()=>c.remove(),520);
+}
+function haptic(){ if(navigator.vibrate) navigator.vibrate(18); }
+
+/* ================= ANSWER / KEYPAD ================= */
+const ansDisplay=document.getElementById('ansDisplay');
+/* ⑥⑦ derive the final answer (and memo) from the tapped angle parts */
+function syncLevel5Answer(){
+  if(state.level!==5) return;
+  const memo=document.getElementById('memo');
+  if(state.mode==='aux'){
+    const a=parseInt(state.partInputs.a,10);
+    const b=parseInt(state.partInputs.b,10);
+    if(!isNaN(a) && !isNaN(b)){
+      const sum=a+b;
+      state.answer=String(sum);
+      memo.value=`${a} + ${b} = ${sum}`;
+    }else{
+      state.answer=""; memo.value='';
+    }
+  }else if(state.mode==='360'){
+    const a=parseInt(state.partInputs.a,10);
+    if(!isNaN(a)){
+      const diff=360-a;
+      state.answer=String(diff);
+      memo.value=`360 - ${a} = ${diff}`;
+    }else{
+      state.answer=""; memo.value='';
+    }
+  }
+  renderAnswer();
+}
+
+function renderAnswer(){
+  if(state.answer===""){ ansDisplay.innerHTML='<span class="ph">?</span><span class="cursor"></span>'; return; }
+  ansDisplay.innerHTML=`${state.answer}<span class="deg">°</span><span class="cursor"></span>`;
+}
+document.getElementById('keypad').addEventListener('click',e=>{
+  const k=e.target.dataset?.k; if(!k) return;
+  // ⑥⑦ if a level5 "?" part is selected, type into it instead of the main answer
+  if(state.level===5 && state.activePart){
+    const part=state.activePart;
+    let v=state.partInputs[part];
+    if(k==='C') v="";
+    else if(k==='DEL') v=v.slice(0,-1);
+    else { if(v.length<3) v+=k; }
+    v=v.replace(/^0+(?=\d)/,'');
+    state.partInputs[part]=v;
+    syncLevel5Answer();
+    render();
+    return;
+  }
+  if(k==='C') state.answer="";
+  else if(k==='DEL') state.answer=state.answer.slice(0,-1);
+  else { if(state.answer.length<3) state.answer+=k; }
+  // strip leading zeros
+  state.answer=state.answer.replace(/^0+(?=\d)/,'');
+  renderAnswer();
+});
+
+/* tapping the answer-display deselects any level-5 "?" part so the keypad types
+   back into the main answer box (no need to re-tap the figure "?" to release). */
+ansDisplay.addEventListener('click',()=>{
+  if(state.level===5 && state.activePart){
+    state.activePart=null;
+    helpnote('こたえを テンキーで にゅうりょくしてね');
+    render();
+  }
+});
+
+/* ================= SUBMIT / JUDGE ================= */
+document.getElementById('submitBtn').addEventListener('click',judge);
+function judge(){
+  if(state.answer===""){ toast(false,'すうじを いれてね','テンキーで こたえを にゅうりょく'); return; }
+  const val=parseInt(state.answer,10);
+  if(val===state.q.target){
+    state.score++; document.getElementById('score').textContent=state.score;
+    toast(true,'せいかい！',pick(['すごい！','やったね！','てんさい！','かんぺき！']));
+    confettiBurst();
+    setTimeout(nextQuestion,1400);
+  }else{
+    toast(false,'もういちど 考えてみよう！','「ヒント」ボタンを おしてみよう💡');
+    state.answer=""; renderAnswer();
+  }
+}
+
+/* ================= FLOW ================= */
+function startLevel(lv){
+  state.level=lv; state.qIndex=0; updatePips();
+  newQuestion();
+}
+function newQuestion(){
+  state.q=genQuestion(state.level);
+  state.answer=""; state.hint=false; state.loupe=false; state.loupeFocus=null; state.loupePart=null;
+  state.extended=false; state.mode=null; state.auxAngle=null; state.auxLocked=false; state.auxBase='A';
+  state.partInputs={a:"",b:""}; state.activePart=null;
+  closeCalc();   // ③ hide the calculator when switching question/level
+  // protractor reset
+  const p=state.prot;
+  p.visible=(state.level!==4);
+  const R=protRadius();
+  p.x=clamp(state.q.cx, R+8, W-R-8);
+  p.y=clamp(Math.min(H*0.42,R+90), R+8, H-8);
+  p.rot=0; p.vlock=false; p.elock=false;
+  configUIForLevel();
+  renderAnswer();
+  render();
+  setQuestionText();
+}
+function nextQuestion(){
+  state.qIndex++;
+  if(state.qIndex>=state.qPerLevel){ finishLevel(); return; }
+  newQuestion();
+}
+function setQuestionText(){
+  const q=state.q;
+  document.getElementById('qnum').textContent=`${state.qIndex+1}/${state.qPerLevel}`;
+  const texts={
+    1:'この 角の 大きさは なん度かな？（分度器で はかろう）',
+    2:'この 角の 大きさは なん度かな？（鈍角に ちゅうい！）',
+    3:'へんが みじかいよ。「へんを のばす」を つかおう！',
+    4:'「？」の 角は なん度かな？（けいさんで もとめよう）',
+    5:'180度より 大きい 角だよ。ほうほうを えらんでね！'
+  };
+  document.getElementById('qtext').textContent=texts[q.level];
+}
+function configUIForLevel(){
+  const lv=state.level;
+  document.getElementById('hintBtn').style.display = 'flex';
+  document.getElementById('extendBtn').style.display = (lv===3)?'flex':'none';
+  document.getElementById('extendBtn').disabled = false;
+  document.getElementById('auxBtn').style.display = (lv===5)?'flex':'none';
+  document.getElementById('from360Btn').style.display = (lv===5)?'flex':'none';
+  document.getElementById('loupeBtn').style.display = (lv===4)?'none':'flex';
+  document.getElementById('loupeBtn').classList.remove('on');
+  document.getElementById('auxBtn').classList.remove('chosen');
+  document.getElementById('from360Btn').classList.remove('chosen');
+  // memo
+  const showMemoLevel=(lv===4)||(lv===5);
+  document.getElementById('memoWrap').classList.toggle('show', lv===4); // L5 memo appears after choosing
+  document.getElementById('memo').value='';
+  // help note
+  const notes={
+    1:'分度器を 角の ちょうてんに あわせてね（じどうで ロックされるよ）',
+    2:'90度より 大きいよ。目もりの よみまちがいに 気をつけて！',
+    3:'まず「へんを のばす」、それから 分度器で はかろう',
+    4:'分度器は つかわないよ。180度から かんがえてね',
+    5:'「補助線を引く」か「360度から引く」を えらんでね'
+  };
+  helpnote(notes[lv]);
+}
+function helpnote(t){ document.getElementById('helpnote').textContent=t||''; document.getElementById('helpnote').style.display=t?'block':'none'; }
+function showMemo(){ document.getElementById('memoWrap').classList.add('show'); }
+
+/* tool buttons */
+document.getElementById('hintBtn').addEventListener('mousedown',()=>setHint(true));
+document.getElementById('hintBtn').addEventListener('touchstart',e=>{e.preventDefault();setHint(true);},{passive:false});
+window.addEventListener('mouseup',()=>setHint(false));
+window.addEventListener('touchend',()=>setHint(false));
+function setHint(on){
+  if(on){
+    // ② Only allow the hint once the protractor is actually placed to measure
+    // (locked on the angle vertex). Level 4 uses no protractor, so it's exempt.
+    // Level 5 in aux mode before the protractor returns is also exempt-by-mode.
+    if(!hintReady()){
+      helpnote('分度器を 角の ちょうてんに あわせてから ヒントを 押してね');
+      return;
+    }
+  }
+  if(state.hint===on)return; state.hint=on; render();
+}
+// is the protractor positioned so a hint (number-band guidance) makes sense?
+function hintReady(){
+  if(!state.q) return false;
+  if(state.q.level===4) return true;            // no protractor; 180° hint is fine
+  // for any level that uses the protractor, require it to be locked on the vertex
+  if(state.prot.visible && state.prot.vlock) return true;
+  return false;
+}
+
+document.getElementById('loupeBtn').addEventListener('click',function(){
+  state.loupe=!state.loupe; this.classList.toggle('on',state.loupe);
+  if(!state.loupe){ state.loupeFocus=null; state.loupePart=null; }
+  else if(state.level===5){
+    state.loupeFocus=null;
+    if(state.activePart){
+      // a "?" is already chosen → magnify its scale right away (⑦)
+      state.loupePart=state.activePart;
+      helpnote('この 角の 目もりを 拡大したよ。分度器の 数字を よんで「？」に 入力しよう🔍');
+    }else{
+      state.loupePart=null;
+      helpnote('はかりたい 角の「？」を おすと、その 目もりが 拡大されるよ🔍');
+    }
+  }
+  render();
+});
+document.getElementById('extendBtn').addEventListener('click',function(){
+  state.extended=true; this.disabled=true; helpnote('へんが のびたよ！分度器で 角を はかろう'); render();
+});
+document.getElementById('auxBtn').addEventListener('click',function(){
+  state.mode='aux'; state.prot.visible=false;
+  state.auxAngle=norm360(state.q.rayA+ state.q.target/2); state.auxLocked=false; state.auxBase='A';
+  state.partInputs={a:"",b:""}; state.activePart=null;
+  this.classList.add('chosen'); document.getElementById('from360Btn').classList.remove('chosen');
+  helpnote('点線を ドラッグして、どちらかの 辺の まっすぐ(180度)の のばした線に あわせよう');
+  document.getElementById('from360Btn').disabled=false;
+  render();
+});
+document.getElementById('from360Btn').addEventListener('click',function(){
+  state.mode='360'; state.prot.visible=true; state.auxAngle=null;
+  state.partInputs={a:"",b:""}; state.activePart=null;
+  // ② park the protractor UNLOCKED in a clear corner away from the figure,
+  // so the child drags & drops it onto the vertex (same as the aux pattern).
+  const p=state.prot, R=protRadius();
+  p.rot=0; p.vlock=false; p.elock=false;
+  p.x=clamp(W-R-20, R+20, W-R-20);
+  p.y=clamp(R+30, R+20, H-30);
+  if(dist(p.x,p.y,state.q.cx,state.q.cy) < R+60){ p.y=clamp(H-40, R+20, H-30); }
+  this.classList.add('chosen'); document.getElementById('auxBtn').classList.remove('chosen');
+  showMemo();
+  helpnote('分度器を ちょうてんに あわせて（ドラッグ）、内がわの「？」を タップして 入力しよう（360 −□）');
+  render();
+});
+
+/* level pips */
+function updatePips(){
+  const c=document.getElementById('levelpips'); c.innerHTML='';
+  for(let i=1;i<=5;i++){
+    const b=document.createElement('div');
+    b.className='pip'+(i===state.level?' active':'')+(state.levelDone[i-1]?' done':'');
+    b.textContent=i; b.title='レベル'+i;
+    b.onclick=()=>{ closeModal(); startLevel(i); };
+    c.appendChild(b);
+  }
+}
+function finishLevel(){
+  state.levelDone[state.level-1]=true; updatePips();
+  const next=state.level<5?state.level+1:null;
+  const stars='⭐⭐⭐';
+  openModal(`
+    <div class="big">🏆</div>
+    <h2>レベル${state.level} クリア！</h2>
+    <div class="stars">${stars}</div>
+    <p>5もん ぜんぶ おわったよ！<br>いまの ⭐は <b>${state.score}</b>こ</p>
+    ${next?`<button onclick="window._next()">レベル${next}へ ➜</button>`:`<button onclick="window._next()">🎉 ぜんぶ クリア！もういちど</button>`}
+    <button class="alt" onclick="window._retry()">もういちど レベル${state.level}</button>
+  `);
+  window._next=()=>{ closeModal(); startLevel(next|| (allDone()?1:state.level+1)); if(!next){state.levelDone=[0,0,0,0,0].map(_=>false);updatePips();} };
+  window._retry=()=>{ closeModal(); startLevel(state.level); };
+}
+function allDone(){return state.levelDone.every(Boolean);}
+
+/* modal + welcome */
+function openModal(html,wide){ const card=document.getElementById('card'); card.innerHTML=html; card.classList.toggle('wide',!!wide); document.getElementById('modal').classList.add('show'); }
+function closeModal(){ document.getElementById('modal').classList.remove('show'); }
+
+function welcome(){
+  openModal(`
+    <div class="big">📐✨</div>
+    <h2>分度器マスター</h2>
+    <p>分度器の つかいかたを マスターしよう！<br>やりたい レベルを えらんでね！</p>
+    <div class="lvlpicker" id="lp"></div>
+    <button onclick="window._begin()">▶ レベル1から はじめる</button>
+  `, true);
+  const lp=document.getElementById('lp');
+  const descs=[
+    '分度器を 使って はかろう',
+    '90度より 大きな 角を はかろう',
+    '辺が 短いときの はかり方を 知ろう',
+    '分度器を 使わないで 求めよう',
+    '180度より 大きな 角を はかろう'
+  ];
+  for(let i=1;i<=5;i++){
+    const b=document.createElement('button');
+    b.className='alt';
+    b.innerHTML=`<span class="lvtag">レベル${i}</span><span>${descs[i-1]}</span>`;
+    b.onclick=()=>{closeModal();startLevel(i);};
+    lp.appendChild(b);
+  }
+  window._begin=()=>{closeModal();startLevel(1);};
+}
+
+/* ================= CALCULATOR (levels 4 & 5) ================= */
+const calcState={expr:'', justEval:false};
+function openCalc(){
+  // seed the calculator with whatever is already in the memo (digits/operators only)
+  const memoVal=document.getElementById('memo').value.replace(/[^0-9+\-×÷*/]/g,'');
+  calcState.expr=memoVal; calcState.justEval=false;
+  renderCalc();
+  document.getElementById('calcPop').classList.add('show');
+}
+function closeCalc(){ document.getElementById('calcPop').classList.remove('show'); }
+function renderCalc(){
+  document.getElementById('calcScreen').textContent = calcState.expr===''?'0':calcState.expr;
+}
+function calcInput(c){
+  const ops=['+','-','×','÷'];
+  if(c==='C'){ calcState.expr=''; calcState.justEval=false; }
+  else if(c==='DEL'){ calcState.expr=calcState.expr.slice(0,-1); calcState.justEval=false; }
+  else if(c==='='){
+    const r=evalExpr(calcState.expr);
+    if(r!==null){ calcState.expr=String(r); calcState.justEval=true; }
+  }
+  else if(ops.includes(c)){
+    if(calcState.expr===''){ if(c==='-') calcState.expr='-'; }
+    else if(ops.includes(calcState.expr.slice(-1))){ calcState.expr=calcState.expr.slice(0,-1)+c; }
+    else calcState.expr+=c;
+    calcState.justEval=false;
+  }
+  else{ // digits or 180 / 360 chips
+    if(calcState.justEval && !ops.includes(calcState.expr.slice(-1))){ calcState.expr=''; }
+    calcState.expr+=c; calcState.justEval=false;
+  }
+  renderCalc();
+}
+function evalExpr(s){
+  if(!s) return null;
+  let js=s.replace(/×/g,'*').replace(/÷/g,'/');
+  if(/[+\-*/]$/.test(js)) js=js.slice(0,-1); // trailing operator
+  if(!/^[-0-9+*/.() ]+$/.test(js)) return null;
+  try{ const v=Function('"use strict";return ('+js+')')(); 
+    if(typeof v!=='number'||!isFinite(v)) return null;
+    return Math.round(v*100)/100;
+  }catch(e){ return null; }
+}
+(function wireCalc(){
+  const memo=document.getElementById('memo');
+  const open=()=>{ if(state.level===4||state.level===5) openCalc(); };
+  memo.addEventListener('focus',open);
+  memo.addEventListener('click',open);
+  document.getElementById('calcClose').addEventListener('click',closeCalc);
+  document.getElementById('calcPop').addEventListener('click',e=>{ if(e.target.id==='calcPop') closeCalc(); });
+  document.querySelector('.calc-grid').addEventListener('click',e=>{
+    const c=e.target.dataset?.c; if(c==null) return; calcInput(c); haptic();
+  });
+  document.getElementById('calcToMemo').addEventListener('click',()=>{
+    const r=evalExpr(calcState.expr);
+    const line = (r!==null && !/[+\-×÷]$/.test(calcState.expr) && /[+\-×÷]/.test(calcState.expr))
+      ? `${calcState.expr} = ${r}` : (calcState.expr||'');
+    memo.value=line;
+    closeCalc();
+  });
+})();
+
+/* ================= TOAST / CONFETTI ================= */
+let toastTimer;
+function toast(good,msg,sub){
+  const t=document.getElementById('toast');
+  t.querySelector('.face').textContent=good?pick(['🎉','🌟','😆','👏','🥳']):'🤔';
+  t.querySelector('.msg').textContent=msg;
+  t.querySelector('.sub').textContent=sub||'';
+  t.classList.toggle('bad',!good); t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'), good?1300:1900);
+}
+function confettiBurst(){
+  const wrap=document.getElementById('stage-wrap');
+  const colors=['#ff7a59','#ffcf4d','#4ec5d6','#8bc34a','#e84393','#7c4dff'];
+  for(let i=0;i<34;i++){
+    const c=document.createElement('div');
+    c.className='confetti';
+    c.style.background=colors[i%colors.length];
+    c.style.left=(40+Math.random()*20)+'%';
+    c.style.top='42%';
+    c.style.transform=`rotate(${Math.random()*360}deg)`;
+    wrap.appendChild(c);
+    const dx=(Math.random()-.5)*window.innerWidth*0.7;
+    const dy=(Math.random()*-1-0.2)*window.innerHeight*0.45;
+    if(c.animate){
+      c.animate([
+        {transform:`translate(0,0) rotate(0deg)`,opacity:1},
+        {transform:`translate(${dx}px,${dy*-1+300}px) rotate(${Math.random()*720}deg)`,opacity:0}
+      ],{duration:1100+Math.random()*500,easing:'cubic-bezier(.2,.6,.4,1)'});
+    }
+    setTimeout(()=>c.remove(),1600);
+  }
+}
+
+/* ================= BOOT ================= */
+function boot(){ resize(); updatePips(); welcome(); }
+window.addEventListener('load',()=>{ setTimeout(boot,60); });
+</script>
+</body>
+</html>
