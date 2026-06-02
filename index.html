@@ -547,6 +547,28 @@ function render(){
   drawParts();   // ④ draw the tappable "?" labels on top so they're pressable over the protractor
   drawHint();
   if(state.loupe) drawLoupe();
+  updateLoupeBtn();
+}
+
+/* ① The loupe is only useful once the protractor is placed so an angle can be
+   read. Enable the button only when the protractor is locked on the vertex
+   (same condition as the hint). When it becomes unavailable, also turn any
+   active magnifier off. */
+function loupeReady(){
+  if(!state.q) return false;
+  if(state.q.level===4) return false;            // no protractor in level 4
+  return state.prot.visible && state.prot.vlock; // locked on the angle vertex
+}
+function updateLoupeBtn(){
+  const btn=document.getElementById('loupeBtn');
+  if(!btn) return;
+  if(state.q && state.q.level===4){ btn.style.display='none'; return; }
+  const ready=loupeReady();
+  btn.disabled=!ready;
+  if(!ready && state.loupe){
+    state.loupe=false; state.loupeFocus=null; state.loupePart=null;
+    btn.classList.remove('on');
+  }
 }
 
 /* ---- the angle figure (rays + vertex + arc) ---- */
@@ -1188,6 +1210,33 @@ const SNAP_V=34, SNAP_E=8; // snap thresholds
 const HIT_ROTATE=46;   // grab radius around the ↻ rotate handle
 const HIT_AUX=44;      // grab radius around the auxiliary-line handle
 
+// ② Is the point on/near the angle figure (vertex or its rays)? Used so that a
+// tap on the figure does NOT dismiss the magnifier — only taps on truly empty
+// space do. Generous so the thin rays are easy to "hit".
+function nearFigure(mx,my){
+  if(!state.q) return false;
+  const q=state.q;
+  const FIG_HIT=30;
+  if(dist(mx,my,q.cx,q.cy)<60) return true;     // near the vertex
+  const len=Math.min(W*0.34,260);
+  const rays = q.level===4
+    ? [0,180,q.divider]
+    : [q.rayA,q.rayB];
+  for(const a of rays){
+    if(distToSegment(mx,my,q.cx,q.cy, ...polar(q.cx,q.cy,a,len)) < FIG_HIT) return true;
+  }
+  return false;
+}
+// distance from point (px,py) to segment (x1,y1)-(x2,y2)
+function distToSegment(px,py,x1,y1,x2,y2){
+  const vx=x2-x1, vy=y2-y1;
+  const wx=px-x1, wy=py-y1;
+  const len2=vx*vx+vy*vy || 1;
+  let t=(wx*vx+wy*vy)/len2; t=Math.max(0,Math.min(1,t));
+  const cx=x1+t*vx, cy=y1+t*vy;
+  return Math.hypot(px-cx,py-cy);
+}
+
 // Returns the role under a screen point using GEOMETRY, not e.target.
 // e.target is unreliable on touch (it can resolve to an overlapping layer
 // such as the "?" part labels or hint overlay drawn above the protractor),
@@ -1246,6 +1295,16 @@ function pointerDown(e){
   // Everything else is decided by GEOMETRY, so finger imprecision and
   // overlapping SVG layers can't steal the touch.
   const role=hitRole(mx,my);
+  // ② Tapping empty space (no protractor, no figure, no "?" part) hides the
+  // magnifier. A part label was already handled above; a tap on the figure
+  // (near the vertex / rays) is treated as "on the figure" and does NOT dismiss.
+  if(state.loupe && !role && !nearFigure(mx,my)){
+    state.loupe=false; state.loupeFocus=null; state.loupePart=null;
+    document.getElementById('loupeBtn').classList.remove('on');
+    render();
+    e.preventDefault();
+    return;
+  }
   if(role==='aux'){
     state.drag={type:'aux'}; e.preventDefault(); return;
   }
@@ -1527,6 +1586,11 @@ function hintReady(){
 }
 
 document.getElementById('loupeBtn').addEventListener('click',function(){
+  // ① ignore taps until the protractor is positioned to measure
+  if(!loupeReady()){
+    helpnote('分度器を 角の ちょうてんに あわせてから ルーペを 押してね🔍');
+    return;
+  }
   state.loupe=!state.loupe; this.classList.toggle('on',state.loupe);
   if(!state.loupe){ state.loupeFocus=null; state.loupePart=null; }
   else if(state.level===5){
