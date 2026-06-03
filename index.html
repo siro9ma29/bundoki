@@ -578,11 +578,11 @@ function drawFigure(){
 
   if(q.level===4){
     // horizontal line
-    const [lx,ly]=polar(cx,cy,180,Math.min(W*0.34,260));
-    const [rx,ry]=polar(cx,cy,0,Math.min(W*0.34,260));
+    const [lx,ly]=polar(cx,cy,180,rayLen(260));
+    const [rx,ry]=polar(cx,cy,0,rayLen(260));
     g.appendChild(el('line',{x1:lx,y1:ly,x2:rx,y2:ry,stroke:'var(--line)','stroke-width':3,'stroke-linecap':'round'}));
     // divider ray (upward)
-    const [dx,dy]=polar(cx,cy,q.divider,Math.min(W*0.30,230));
+    const [dx,dy]=polar(cx,cy,q.divider,rayLen(230));
     g.appendChild(el('line',{x1:cx,y1:cy,x2:dx,y2:dy,stroke:'var(--coral)','stroke-width':3,'stroke-linecap':'round'}));
     // known angle (right side, between 0° and divider)
     drawAngleArc(g,cx,cy,0,q.divider,34,'var(--grass-dark)');
@@ -605,11 +605,11 @@ function drawFigure(){
   if(showEmphasis){ drawMeasureEmphasis(g,cx,cy); }
 
   // generic two-ray angle (levels 1,2,3,5)
-  let len = q.level===3 ? 64 : Math.min(W*0.30,235);
+  let len = q.level===3 ? 64 : rayLen(235);
   const [ax,ay]=polar(cx,cy,q.rayA,len);
   const [bx,by]=polar(cx,cy,q.rayB,len);
   // extension dotted (level3 after extend)
-  const fullLen=Math.min(W*0.30,235);
+  const fullLen=rayLen(235);
   if(q.level===3 && state.extended){
     const [ax2,ay2]=polar(cx,cy,q.rayA,fullLen);
     const [bx2,by2]=polar(cx,cy,q.rayB,fullLen);
@@ -705,7 +705,7 @@ function vertexDot(g,cx,cy){
    a translucent pink wedge between its two boundary lines + red edge overlays. */
 function drawMeasureEmphasis(g,cx,cy){
   const b=measuredBoundaries(); if(!b) return;
-  const len=Math.min(W*0.30,235);
+  const len=rayLen(235);
   // wedge: vertex → along start edge → sampled arc to end edge → back to vertex
   let span=norm360(b.end-b.start); if(span===0)span=360;
   const r=len;
@@ -832,7 +832,26 @@ function whichScale(){
 
 /* ---- PROTRACTOR (semicircle, draggable + rotatable) ---- */
 const PR=205; // protractor radius in user units (enlarged ~1.35x)
-function protRadius(){ return Math.min(PR, W*0.42, H*0.46); }
+// ② On phones the protractor is shrunk ~20% so the figure's rays can reach the
+//    scale ticks (the figure sides were too short relative to a big protractor).
+const IS_PHONE = (typeof window!=='undefined') &&
+  (window.matchMedia ? window.matchMedia('(max-width: 480px)').matches : (window.innerWidth||999)<=480);
+const PROT_SCALE = IS_PHONE ? 0.80 : 1.0;
+function protRadius(){ return Math.min(PR*PROT_SCALE, W*0.42*PROT_SCALE, H*0.46*PROT_SCALE); }
+// ② Standard ray/side length for the angle figure. On phones we lengthen the
+//    sides so they reach (slightly past) the protractor's scale ticks instead
+//    of stopping short of them. cap keeps it inside the stage.
+function rayLen(cap){
+  cap = cap || 235;
+  let base = Math.min(W*0.30, cap);
+  if(IS_PHONE){
+    // ensure the side comfortably overlaps the protractor scale (radius R)
+    const reach = protRadius()*1.18;
+    base = Math.max(base, reach);
+    base = Math.min(base, W*0.46, cap*1.25); // but stay on-screen
+  }
+  return base;
+}
 
 function drawProtractor(){
   const g=layers.prot, p=state.prot, R=protRadius();
@@ -1015,7 +1034,7 @@ function drawHint(){
   const q=state.q, g=layers.hint, cx=q.cx, cy=q.cy;
   if(q.level===4){
     // big half arc over the straight line + "180°"
-    const R=Math.min(W*0.30,210);
+    const R=rayLen(210);
     drawAngleArc(g,cx,cy,0,180,R,'var(--hint)');
     const [tx,ty]=polar(cx,cy,90,R+8);
     const t=el('text',{x:tx,y:ty,'text-anchor':'middle','font-size':30,'font-weight':900,fill:'var(--hint)',stroke:'#fff','stroke-width':5,'paint-order':'stroke'});
@@ -1025,7 +1044,7 @@ function drawHint(){
     return;
   }
   if(q.level===5){
-    const len=Math.min(W*0.30,235);
+    const len=rayLen(235);
     if(state.mode==='aux'){
       if(state.auxLocked){
         // ③ once locked, the pink number band on the protractor guides the read;
@@ -1060,7 +1079,7 @@ function drawHint(){
     return;
   }
   // levels 1,2,3 : highlight the 0-line (one ray) and measuring direction
-  const len=Math.min(W*0.30,235);
+  const len=rayLen(235);
   const [ax,ay]=polar(cx,cy,q.rayA,len);
   const glow=el('line',{x1:cx,y1:cy,x2:ax,y2:ay,stroke:'var(--hint)','stroke-width':11,'stroke-linecap':'round',opacity:.45});
   glow.appendChild(el('animate',{attributeName:'opacity',values:'.2;.6;.2',dur:'1.3s',repeatCount:'indefinite'}));
@@ -1152,7 +1171,7 @@ function drawLoupe(){
   if(p.visible){
     [fx,fy]=polar(q.cx,q.cy,edge, R-26);                 // scale band of the protractor
   }else{
-    [fx,fy]=polar(q.cx,q.cy,edge, Math.min(W*0.30,235)-20);
+    [fx,fy]=polar(q.cx,q.cy,edge, rayLen(235)-20);
   }
   const g=layers.loupe;
   const lr=Math.round(Math.min(112, W*0.20, H*0.26)); // bigger lens (was 72)
@@ -1205,10 +1224,14 @@ function svgPoint(evt){
   return [(t.clientX-r.left), (t.clientY-r.top)];
 }
 const SNAP_V=34, SNAP_E=8; // snap thresholds
-// Touch-friendly hit radii (in px). Touch targets need to be generous because
-// fingers are imprecise and the SVG elements themselves are thin.
-const HIT_ROTATE=46;   // grab radius around the ↻ rotate handle
-const HIT_AUX=44;      // grab radius around the auxiliary-line handle
+// ① Touch-friendly hit radii (in px). Fingers are imprecise and the SVG
+//    elements themselves are thin, so on touch devices we make every grab
+//    target noticeably larger than on mouse (where the cursor is precise).
+const IS_TOUCH = (typeof window!=='undefined') &&
+  (('ontouchstart' in window) || (navigator.maxTouchPoints||0) > 0);
+const HIT_ROTATE = IS_TOUCH ? 64 : 46;   // grab radius around the ↻ rotate handle
+const HIT_AUX    = IS_TOUCH ? 62 : 44;   // grab radius around the auxiliary-line handle
+const HIT_BODY   = IS_TOUCH ? 30 : 16;   // extra slack around the protractor body edge
 
 // ② Is the point on/near the angle figure (vertex or its rays)? Used so that a
 // tap on the figure does NOT dismiss the magnifier — only taps on truly empty
@@ -1218,7 +1241,7 @@ function nearFigure(mx,my){
   const q=state.q;
   const FIG_HIT=30;
   if(dist(mx,my,q.cx,q.cy)<60) return true;     // near the vertex
-  const len=Math.min(W*0.34,260);
+  const len=rayLen(260);
   const rays = q.level===4
     ? [0,180,q.divider]
     : [q.rayA,q.rayB];
@@ -1247,7 +1270,7 @@ function hitRole(mx,my){
   // 1) auxiliary handle (level 5 aux mode) — highest priority.
   //    Its on-screen position mirrors drawing: polar(cx,cy,auxAngle,fullLen+10).
   if(state.mode==='aux' && state.auxAngle!=null){
-    const fullLen=Math.min(W*0.30,235);
+    const fullLen=rayLen(235);
     const [ax,ay]=polar(state.q.cx,state.q.cy,state.auxAngle,fullLen+10);
     if(dist(mx,my,ax,ay)<HIT_AUX) return 'aux';
   }
@@ -1261,12 +1284,13 @@ function hitRole(mx,my){
   //    strip), NOT the empty lower half. This matches what the child sees.
   if(state.prot.visible){
     const d=dist(mx,my,p.x,p.y);
-    if(d<R+16){
+    if(d<R+HIT_BODY){
       // angle of the point relative to the protractor's own (rotated) frame.
       // local angle 0..180 = the visible half-disc; allow a little below the
-      // baseline (down to -25°) to cover the flat base strip.
+      // baseline to cover the flat base strip (more slack on touch).
       const local=norm360(angleOf(p.x,p.y,mx,my)-p.rot);
-      const onDisc = (local<=180) || (local>=335);
+      const baseStrip = IS_TOUCH ? 315 : 335;
+      const onDisc = (local<=180) || (local>=baseStrip);
       if(onDisc) return 'move';
     }
   }
