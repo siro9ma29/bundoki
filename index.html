@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>分度器マスター</title>
+<title>分度器マスター v10</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
 
@@ -58,7 +58,9 @@
   .logo{font-weight:900;font-size:clamp(16px,3.6vw,24px);letter-spacing:.5px;
     color:var(--coral-dark);display:flex;align-items:center;gap:6px;white-space:nowrap;}
   .logo .gizmo{font-size:1.25em;transform:rotate(-12deg);display:inline-block;}
-  .logo .ver{font-size:.5em;font-weight:700;color:#b7a878;margin-left:5px;letter-spacing:0;align-self:flex-end;margin-bottom:.15em;}
+  .logo .ver{font-size:.5em;font-weight:700;color:#b7a878;background:#fff;
+    border:2px solid #e3d2a5;border-radius:8px;padding:1px 6px;margin-left:6px;
+    align-self:center;letter-spacing:.5px;}
   .levelpips{display:flex;gap:5px;margin-left:6px;}
   .pip{width:clamp(20px,4.4vw,30px);height:clamp(20px,4.4vw,30px);border-radius:50%;
     display:grid;place-items:center;font-weight:900;font-size:clamp(11px,2.3vw,15px);
@@ -287,7 +289,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo"><span class="gizmo">📐</span>分度器マスター<span class="ver">v9</span></div>
+    <div class="logo"><span class="gizmo">📐</span>分度器マスター<span class="ver">v10</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -383,6 +385,15 @@ function resize(){
   const r=stage.getBoundingClientRect();
   W=r.width;H=r.height;
   stage.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  // viewBox is kept EXACTLY equal to the displayed pixel size, and we force a
+  // 1:1 mapping (no letterboxing). Without this, any drift between the viewBox
+  // aspect-ratio and the element's real size (e.g. the mobile address bar
+  // growing/shrinking only the height) makes the default "xMidYMid meet"
+  // re-centre & scale everything — so the drawn protractor no longer sits at
+  // its logical (p.x,p.y) coordinates, and a static tap on it misses while a
+  // tap slightly off it hits. "none" + a synced viewBox guarantees screen px
+  // == user units, so hit-testing always matches what is drawn.
+  stage.setAttribute('preserveAspectRatio','none');
   // ① re-centre the figure (and a centred, unmoved protractor) for the new size
   if(state.q){
     const oldCx=state.q.cx, oldCy=state.q.cy;
@@ -1313,7 +1324,19 @@ function hitRole(mx,my){
   return null;
 }
 
+function syncViewBox(){
+  // keep viewBox == current displayed px size so user-units == screen px.
+  // Cheap; call right before reading a touch so a pending (debounced) resize
+  // can never leave us mapping into a stale coordinate system.
+  const r=stage.getBoundingClientRect();
+  if(Math.abs(r.width-W)>0.5 || Math.abs(r.height-H)>0.5){
+    W=r.width;H=r.height;
+    stage.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  }
+}
+
 function pointerDown(e){
+  syncViewBox();
   const [mx,my]=svgPoint(e);
   // ⑥⑦ level5: tap a "?" angle label. These live ABOVE the protractor, so we
   // still detect them via e.target (a deliberate tap, not a drag).
@@ -1709,7 +1732,7 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 function welcome(){
   openModal(`
     <div class="big">📐✨</div>
-    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;vertical-align:middle;">v9</span></h2>
+    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v10</span></h2>
     <p>分度器の つかいかたを マスターしよう！<br>やりたい レベルを えらんでね！</p>
     <div class="lvlpicker" id="lp"></div>
     <button onclick="window._begin()">▶ レベル1から はじめる</button>
