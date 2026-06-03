@@ -1219,9 +1219,24 @@ function drawLoupe(){
 
 /* ================= INTERACTION (drag / rotate / snap) ================= */
 function svgPoint(evt){
-  const r=stage.getBoundingClientRect();
   const t=(evt.touches&&evt.touches[0])||(evt.changedTouches&&evt.changedTouches[0])||evt;
-  return [(t.clientX-r.left), (t.clientY-r.top)];
+  // Use the SVG's own coordinate transform so the hit point always matches
+  // exactly what is drawn — regardless of CSS scaling, device-pixel-ratio,
+  // address-bar resizes or viewBox/displayed-size mismatches. This eliminates
+  // the "touch is offset down-right from the element" problem that a plain
+  // (clientX - rect.left) calculation suffers from when sizes drift.
+  const ctm = stage.getScreenCTM && stage.getScreenCTM();
+  if(ctm){
+    const inv = ctm.inverse();
+    const x = inv.a*t.clientX + inv.c*t.clientY + inv.e;
+    const y = inv.b*t.clientX + inv.d*t.clientY + inv.f;
+    return [x, y];
+  }
+  // fallback (older engines)
+  const r=stage.getBoundingClientRect();
+  const sx = r.width ? (W / r.width) : 1;
+  const sy = r.height ? (H / r.height) : 1;
+  return [(t.clientX-r.left)*sx, (t.clientY-r.top)*sy];
 }
 const SNAP_V=34, SNAP_E=8; // snap thresholds
 // ① Touch-friendly hit radii (in px). Fingers are imprecise and the SVG
