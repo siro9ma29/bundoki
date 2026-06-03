@@ -75,7 +75,7 @@
 
   /* ---------- MAIN ---------- */
   main{flex:1 1 auto;display:flex;min-height:0;}
-  #stage-wrap{flex:1 1 auto;position:relative;min-width:0;display:flex;flex-direction:column;}
+  #stage-wrap{flex:1 1 auto;position:relative;min-width:0;display:flex;flex-direction:column;touch-action:none;}
   .questionbar{
     position:absolute;top:10px;left:50%;transform:translateX(-50%);
     background:#fff;border:3px solid var(--sun);border-radius:18px;
@@ -289,7 +289,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo"><span class="gizmo">📐</span>分度器マスター<span class="ver">v10</span></div>
+    <div class="logo"><span class="gizmo">📐</span>分度器マスター<span class="ver">v11</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -1232,23 +1232,18 @@ function drawLoupe(){
 /* ================= INTERACTION (drag / rotate / snap) ================= */
 function svgPoint(evt){
   const t=(evt.touches&&evt.touches[0])||(evt.changedTouches&&evt.changedTouches[0])||evt;
-  // Use the SVG's own coordinate transform so the hit point always matches
-  // exactly what is drawn — regardless of CSS scaling, device-pixel-ratio,
-  // address-bar resizes or viewBox/displayed-size mismatches. This eliminates
-  // the "touch is offset down-right from the element" problem that a plain
-  // (clientX - rect.left) calculation suffers from when sizes drift.
-  const ctm = stage.getScreenCTM && stage.getScreenCTM();
-  if(ctm){
-    const inv = ctm.inverse();
-    const x = inv.a*t.clientX + inv.c*t.clientY + inv.e;
-    const y = inv.b*t.clientX + inv.d*t.clientY + inv.f;
-    return [x, y];
-  }
-  // fallback (older engines)
+  // Because the stage uses preserveAspectRatio="none" with a viewBox kept in
+  // sync with the element's displayed size, screen-px map to user-units by a
+  // simple per-axis scale. We compute this directly from the bounding rect
+  // rather than via getScreenCTM(): reading the CTM right after a viewBox
+  // mutation can return a stale matrix on some mobile engines, which made the
+  // FIRST tap land at the wrong coordinates (so it appeared to "do nothing").
   const r=stage.getBoundingClientRect();
-  const sx = r.width ? (W / r.width) : 1;
-  const sy = r.height ? (H / r.height) : 1;
-  return [(t.clientX-r.left)*sx, (t.clientY-r.top)*sy];
+  const vbW = (W>0 ? W : r.width);
+  const vbH = (H>0 ? H : r.height);
+  const sx = r.width  ? (vbW / r.width)  : 1;
+  const sy = r.height ? (vbH / r.height) : 1;
+  return [ (t.clientX - r.left) * sx, (t.clientY - r.top) * sy ];
 }
 const SNAP_V=34, SNAP_E=8; // snap thresholds
 // ① Touch-friendly hit radii (in px). Fingers are imprecise and the SVG
@@ -1456,12 +1451,39 @@ function pointerMove(e){
 }
 function pointerUp(){ state.drag=null; }
 
-stage.addEventListener('mousedown',pointerDown);
-window.addEventListener('mousemove',pointerMove);
-window.addEventListener('mouseup',pointerUp);
-stage.addEventListener('touchstart',pointerDown,{passive:false});
-window.addEventListener('touchmove',pointerMove,{passive:false});
-window.addEventListener('touchend',pointerUp);
+// ── Event wiring ────────────────────────────────────────────────────────────
+// The protractor and its handles are drawn as SVG children, and on touch the
+// event target can resolve to an overlapping layer (or be swallowed entirely),
+// which made the INITIAL tap on the protractor / rotate-arrow do nothing.
+// To make the start tap rock-solid we:
+//   • bind the "down" listener to the STAGE CONTAINER (stage-wrap) so a touch
+//     anywhere over the drawing reaches us, never blocked by a child SVG node;
+//   • prefer Pointer Events (one unified, reliable path for mouse + touch on
+//     modern mobile), and only fall back to touch/mouse on older engines;
+//   • route move/up through the window so a drag keeps tracking even if the
+//     finger slides outside the stage.
+const downTarget = document.getElementById('stage-wrap') || stage;
+
+if(window.PointerEvent){
+  // Pointer Events: the modern, reliable unified path.
+  downTarget.addEventListener('pointerdown', e=>{
+    // ignore secondary touches while already dragging
+    if(state.drag && e.isPrimary===false) return;
+    pointerDown(e);
+  }, {passive:false});
+  window.addEventListener('pointermove', pointerMove, {passive:false});
+  window.addEventListener('pointerup',   pointerUp);
+  window.addEventListener('pointercancel', pointerUp);
+}else{
+  // Fallback for engines without Pointer Events.
+  downTarget.addEventListener('mousedown', pointerDown);
+  window.addEventListener('mousemove', pointerMove);
+  window.addEventListener('mouseup',   pointerUp);
+  downTarget.addEventListener('touchstart', pointerDown, {passive:false});
+  window.addEventListener('touchmove', pointerMove, {passive:false});
+  window.addEventListener('touchend',  pointerUp);
+  window.addEventListener('touchcancel', pointerUp);
+}
 
 function pulseLock(x,y){
   const c=el('circle',{cx:x,cy:y,r:10,fill:'none',stroke:'var(--grass-dark)','stroke-width':4});
@@ -1732,7 +1754,7 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 function welcome(){
   openModal(`
     <div class="big">📐✨</div>
-    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v10</span></h2>
+    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v11</span></h2>
     <p>分度器の つかいかたを マスターしよう！<br>やりたい レベルを えらんでね！</p>
     <div class="lvlpicker" id="lp"></div>
     <button onclick="window._begin()">▶ レベル1から はじめる</button>
