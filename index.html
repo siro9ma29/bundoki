@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>分度器マスター v15</title>
+<title>分度器マスター v16</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
 
@@ -289,7 +289,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo"><span class="gizmo">📐</span>分度器マスター<span class="ver">v15</span></div>
+    <div class="logo"><span class="gizmo">📐</span>分度器マスター<span class="ver">v16</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -1340,9 +1340,15 @@ function pointerDown(e){
   // ② Tapping empty space (no protractor, no figure, no "?" part) hides the
   // magnifier. A part label was already handled above; a tap on the figure
   // (near the vertex / rays) is treated as "on the figure" and does NOT dismiss.
-  if(state.loupe && !role && !nearFigure(mx,my)){
-    state.loupe=false; state.loupeFocus=null; state.loupePart=null;
-    document.getElementById('loupeBtn').classList.remove('on');
+  if((state.loupe||state.hint) && !role && !nearFigure(mx,my)){
+    if(state.loupe){
+      state.loupe=false; state.loupeFocus=null; state.loupePart=null;
+      document.getElementById('loupeBtn').classList.remove('on');
+    }
+    if(state.hint){
+      state.hint=false;
+      document.getElementById('hintBtn').classList.remove('chosen');
+    }
     render();
     e.preventDefault();
     return;
@@ -1875,7 +1881,7 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 function welcome(){
   openModal(`
     <div class="big">📐✨</div>
-    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v15</span></h2>
+    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v16</span></h2>
     <p>分度器の つかいかたを マスターしよう！<br>やりたい レベルを えらんでね！</p>
     <div class="lvlpicker" id="lp"></div>
     <button onclick="window._begin()">▶ レベル1から はじめる</button>
