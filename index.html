@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>分度器マスター v14</title>
+<title>分度器マスター v15</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
 
@@ -289,7 +289,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo"><span class="gizmo">📐</span>分度器マスター<span class="ver">v14</span></div>
+    <div class="logo"><span class="gizmo">📐</span>分度器マスター<span class="ver">v15</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -1267,18 +1267,25 @@ function distToSegment(px,py,x1,y1,x2,y2){
 // taps away from the handle to rotate. Geometry-based hit testing fixes both.
 function hitRole(mx,my){
   const p=state.prot, R=protRadius();
-  // 1) auxiliary handle (level 5 aux mode) — highest priority.
-  //    Its on-screen position mirrors drawing: polar(cx,cy,auxAngle,fullLen+10).
+  // 1) auxiliary handle (level 5 aux mode) and 2) rotate handle can sit close
+  //    together. Compute the distance to EACH, then pick whichever the finger is
+  //    actually closer to — otherwise giving aux blanket priority would let a tap
+  //    on the rotate handle get stolen by aux whenever they overlap.
+  let auxD=Infinity, rotD=Infinity;
   if(state.mode==='aux' && state.auxAngle!=null){
     const fullLen=rayLen(235);
     const [ax,ay]=polar(state.q.cx,state.q.cy,state.auxAngle,fullLen+10);
-    if(dist(mx,my,ax,ay)<HIT_AUX) return 'aux';
+    auxD=dist(mx,my,ax,ay);
   }
-  // 2) rotate handle — only when vertex-locked; sits at baseline right end,
-  //    rotated with the protractor. Generous radius so it's easy to grab.
   if(state.prot.visible && p.vlock){
     const [hx,hy]=polar(p.x,p.y,p.rot,R-3);
-    if(dist(mx,my,hx,hy)<HIT_ROTATE) return 'rotate';
+    rotD=dist(mx,my,hx,hy);
+  }
+  const auxHit = auxD<HIT_AUX;
+  const rotHit = rotD<HIT_ROTATE;
+  if(auxHit || rotHit){
+    if(auxHit && rotHit) return (auxD<=rotD) ? 'aux' : 'rotate';
+    return auxHit ? 'aux' : 'rotate';
   }
   // 3) protractor body — only the actual upper semicircle (+ a small base
   //    strip), NOT the empty lower half. This matches what the child sees.
@@ -1868,7 +1875,7 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 function welcome(){
   openModal(`
     <div class="big">📐✨</div>
-    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v14</span></h2>
+    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v15</span></h2>
     <p>分度器の つかいかたを マスターしよう！<br>やりたい レベルを えらんでね！</p>
     <div class="lvlpicker" id="lp"></div>
     <button onclick="window._begin()">▶ レベル1から はじめる</button>
