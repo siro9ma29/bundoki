@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>分度器マスター v13</title>
+<title>分度器マスター v14</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
 
@@ -289,7 +289,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo"><span class="gizmo">📐</span>分度器マスター<span class="ver">v13</span></div>
+    <div class="logo"><span class="gizmo">📐</span>分度器マスター<span class="ver">v14</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -1743,16 +1743,26 @@ function showMemo(){ document.getElementById('memoWrap').classList.add('show'); 
 // ボタンは stage-wrap の子なので、押下イベントが下の SVG (pointerDown) に伝播し
 // 「空きスペースのタップ」と誤判定されてルーペが解除されるのを防ぐため、
 // pointerdown / mousedown / touchstart すべてで stopPropagation する。
+// 押下時は SVG への伝播だけ止める（既定の click 合成は抑制しない）。
 ['pointerdown','mousedown','touchstart'].forEach(type=>{
   document.getElementById('hintBtn').addEventListener(type,e=>{
     e.stopPropagation();
-    if(type==='touchstart') e.preventDefault();
-  },{passive:false});
+  },{passive:true});
 });
-document.getElementById('hintBtn').addEventListener('click',e=>{
+// 実際のトグルは pointerup で行う。PointerEvent はマウス／タッチ／ペンを
+// 統一的に扱うため、タッチでも確実に発火する。click には依存しない。
+document.getElementById('hintBtn').addEventListener('pointerup',e=>{
   e.stopPropagation();
+  e.preventDefault();
   toggleHint();
 });
+// PointerEvent 非対応の古い環境向けフォールバック（pointerup と二重発火しない）。
+if(!window.PointerEvent){
+  document.getElementById('hintBtn').addEventListener('click',e=>{
+    e.stopPropagation();
+    toggleHint();
+  });
+}
 function toggleHint(){
   // turning the hint ON requires the protractor to be placed (level 4 exempt)
   if(!state.hint && !hintReady()){
@@ -1858,7 +1868,7 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 function welcome(){
   openModal(`
     <div class="big">📐✨</div>
-    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v13</span></h2>
+    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v14</span></h2>
     <p>分度器の つかいかたを マスターしよう！<br>やりたい レベルを えらんでね！</p>
     <div class="lvlpicker" id="lp"></div>
     <button onclick="window._begin()">▶ レベル1から はじめる</button>
