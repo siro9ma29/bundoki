@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>分度器マスター v10</title>
+<title>分度器マスター v13</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
 
@@ -79,12 +79,19 @@
   .questionbar{
     position:absolute;top:10px;left:50%;transform:translateX(-50%);
     background:#fff;border:3px solid var(--sun);border-radius:18px;
-    padding:7px 18px;font-weight:700;font-size:clamp(13px,2.7vw,18px);
+    padding:8px 18px;font-weight:700;font-size:clamp(13px,2.7vw,18px);
     box-shadow:0 4px 0 var(--sun-dark),0 8px 16px var(--shadow);
-    z-index:12;text-align:center;max-width:90%;color:var(--ink);
-    display:flex;align-items:center;gap:8px;
+    z-index:12;text-align:center;max-width:92%;color:var(--ink);
+    display:flex;align-items:center;gap:8px;line-height:1.35;
   }
-  .questionbar .qnum{background:var(--coral);color:#fff;border-radius:10px;padding:1px 9px;font-weight:900;font-size:.85em;}
+  .questionbar .qnum{background:var(--coral);color:#fff;border-radius:10px;padding:1px 9px;font-weight:900;font-size:.85em;flex:0 0 auto;}
+  /* 作業フローのステップ表示（上のウィンドウに統合された旧helpnote） */
+  .questionbar #qtext{display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .questionbar .qstep{display:flex;align-items:center;gap:6px;font-weight:900;}
+  .questionbar .qstep .stepicon{font-size:1.15em;}
+  .questionbar .qsub{font-size:.78em;font-weight:700;color:#9a8a6e;}
+  .questionbar.flash{animation:qbFlash .5s;}
+  @keyframes qbFlash{0%{transform:translateX(-50%) scale(1);}40%{transform:translateX(-50%) scale(1.05);border-color:var(--coral);}100%{transform:translateX(-50%) scale(1);}}
   svg#stage{flex:1;width:100%;height:100%;display:block;touch-action:none;}
 
   /* floating tool buttons (left side of stage) */
@@ -132,13 +139,35 @@
   .ans-display .cursor{width:3px;height:.85em;background:var(--coral);animation:blink 1s steps(2) infinite;border-radius:2px;}
   @keyframes blink{50%{opacity:0;}}
 
-  .memo-wrap{display:none;flex-direction:column;gap:4px;}
+  /* ② レベル1〜3の 2択ボタン */
+  .choices{display:none;flex-direction:column;gap:10px;}
+  .choices.show{display:flex;}
+  .choice-q{font-weight:900;font-size:clamp(14px,3vw,18px);color:var(--sky-dark);text-align:center;margin:2px 0;}
+  .choice-btn{
+    border:4px solid var(--sky);border-radius:18px;padding:16px 12px;
+    font-family:inherit;font-weight:900;font-size:clamp(26px,6vw,38px);color:var(--ink);
+    background:linear-gradient(180deg,#fff,#eafafc);cursor:pointer;transition:.1s;
+    box-shadow:0 5px 0 var(--sky-dark),0 7px 12px var(--shadow);
+    display:flex;align-items:center;justify-content:center;gap:2px;
+  }
+  .choice-btn .cdeg{font-size:.55em;color:var(--sky-dark);}
+  .choice-btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--sky-dark);}
+  .choice-btn.picked{background:linear-gradient(180deg,var(--sun),var(--sun-dark));border-color:var(--sun-dark);box-shadow:0 5px 0 #c99211;}
+
+  .memo-wrap{display:none;flex-direction:column;gap:5px;}
   .memo-wrap.show{display:flex;}
-  .memo-label{font-weight:700;font-size:12px;color:var(--proto);display:flex;align-items:center;gap:4px;}
-  .memo{width:100%;border:2.5px dashed var(--proto);border-radius:12px;background:#faf7ff;
-    font-family:inherit;font-weight:700;font-size:clamp(16px,3.4vw,22px);color:var(--proto);
-    padding:8px 10px;resize:none;height:46px;outline:none;text-align:center;}
-  .memo::placeholder{color:#c4b3f0;font-weight:500;font-size:13px;}
+  .memo-label{font-weight:900;font-size:14px;color:var(--proto);display:flex;align-items:center;gap:4px;}
+  .memo{width:100%;border:3px dashed var(--proto);border-radius:16px;background:#faf7ff;
+    font-family:inherit;font-weight:900;font-size:clamp(24px,5.4vw,34px);color:var(--proto);
+    padding:16px 12px;min-height:64px;display:flex;align-items:center;justify-content:center;
+    text-align:center;line-height:1.25;word-break:break-word;
+    box-shadow:inset 0 3px 0 #ece2ff;transition:.15s;}
+  .memo.has-value{background:#fff;border-style:solid;border-color:var(--grass-dark);color:var(--ink);
+    box-shadow:inset 0 3px 0 #e6f3d6,0 0 0 0 var(--grass);}
+  .memo.flash{animation:memoFlash .55s;}
+  @keyframes memoFlash{0%{transform:scale(1);}40%{transform:scale(1.06);box-shadow:0 0 0 6px rgba(139,195,74,.35);}100%{transform:scale(1);}}
+  .memo .memo-ph{color:#c4b3f0;font-weight:700;font-size:14px;}
+  .memo .eq-result{color:var(--coral-dark);}
 
   .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:auto;}
   .key{
@@ -203,36 +232,7 @@
   .card button:active{transform:translateY(4px);box-shadow:0 1px 0 var(--coral-dark);}
   .card button.alt{background:linear-gradient(180deg,#5fd3e2,var(--sky-dark));box-shadow:0 5px 0 #1f7d8c;}
 
-  /* ---------- CALCULATOR POPUP ---------- */
-  /* Docked to the right side of the stage so the figure stays visible while
-     calculating. No full-screen dimming, no blocking of the keypad. */
-  #calcPop{position:absolute;bottom:10px;right:10px;z-index:90;display:none;
-    align-items:flex-end;justify-content:flex-end;background:transparent;pointer-events:none;}
-  #calcPop.show{display:flex;}
-  .calc-card{background:linear-gradient(180deg,#fffef9,#f4ead2);border-radius:22px;padding:12px;
-    width:min(248px,46vw);max-height:calc(100% - 8px);overflow:auto;
-    box-shadow:0 16px 44px rgba(0,0,0,.3);border:5px solid var(--proto);
-    animation:pop .25s cubic-bezier(.2,1.3,.4,1);pointer-events:auto;}
-  .calc-head{display:flex;align-items:center;justify-content:space-between;font-weight:900;
-    font-size:17px;color:var(--proto);margin-bottom:8px;}
-  .calc-close{border:none;background:#efe6ff;color:var(--proto);font-weight:900;font-size:16px;
-    width:30px;height:30px;border-radius:10px;cursor:pointer;}
-  .calc-screen{background:#fff;border:3px solid var(--proto);border-radius:12px;min-height:50px;
-    display:flex;align-items:center;justify-content:flex-end;padding:6px 14px;font-weight:900;
-    font-size:26px;color:var(--ink);overflow:hidden;word-break:break-all;text-align:right;}
-  .calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px;}
-  .cbtn{border:none;border-radius:13px;height:clamp(42px,8vw,52px);font-family:inherit;font-weight:900;
-    font-size:clamp(16px,3.6vw,21px);cursor:pointer;background:linear-gradient(180deg,#fff,#f1e7d0);
-    color:var(--ink);box-shadow:0 3px 0 #ddca9e;transition:.08s;}
-  .cbtn:active{transform:translateY(3px);box-shadow:0 0 0 #ddca9e;}
-  .cbtn.cop{background:linear-gradient(180deg,#cdbcff,#9b7bff);color:#fff;box-shadow:0 3px 0 #6f4fe0;}
-  .cbtn.cfn{background:linear-gradient(180deg,#ffd2c4,#ffb59e);color:var(--coral-dark);box-shadow:0 3px 0 #e89077;}
-  .cbtn.ceq{grid-row:span 2;background:linear-gradient(180deg,#ffb04d,var(--coral));color:#fff;box-shadow:0 3px 0 var(--coral-dark);}
-  .cbtn.czero{grid-column:span 1;}
-  .calc-tomemo{width:100%;margin-top:10px;border:none;border-radius:13px;padding:11px;font-family:inherit;
-    font-weight:900;font-size:16px;color:#fff;cursor:pointer;
-    background:linear-gradient(180deg,#9fd86a,var(--grass-dark));box-shadow:0 4px 0 #4e7a28;}
-  .calc-tomemo:active{transform:translateY(3px);box-shadow:0 1px 0 #4e7a28;}
+  /* ---------- (電卓は廃止: ③ ？への入力で自動計算されるメモに置換) ---------- */
 
   .lvlpicker{display:flex;flex-direction:column;gap:9px;margin:14px 0 6px;}
   .lvlpicker button{padding:14px 18px;font-size:16px;border-radius:14px;text-align:left;
@@ -243,13 +243,7 @@
   .card.wide p{font-size:16px;}
   .card.wide h2{font-size:30px;}
 
-  /* small helper note bottom of stage */
-  .helpnote{
-    position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
-    background:rgba(255,255,255,.9);border:2px solid #e3d2a5;border-radius:12px;
-    padding:5px 14px;font-size:clamp(11px,2.3vw,13px);font-weight:700;color:#8a7a64;z-index:11;
-    box-shadow:0 3px 8px var(--shadow);text-align:center;max-width:88%;
-  }
+  /* (旧 helpnote は questionbar に統合) */
 
   @media(max-width:720px){
     main{flex-direction:column;}
@@ -258,6 +252,10 @@
       box-shadow:0 -4px 0 #ead9ad;padding:8px;gap:7px;
       padding-bottom:calc(8px + env(safe-area-inset-bottom));}
     .ans-display{flex:1 1 100%;min-height:48px;font-size:30px;order:1;}
+    .choices{flex:1 1 100%;order:2;}
+    .choices.show{flex-direction:row;gap:10px;}
+    .choices.show .choice-q{flex:1 1 100%;margin:0;}
+    .choices.show .choice-btn{flex:1 1 0;padding:14px 6px;}
     .memo-wrap{flex:1 1 100%;order:2;}
     .keypad{order:4;flex:1 1 58%;margin-top:0;gap:6px;}
     .key{height:42px;font-size:20px;}
@@ -275,6 +273,8 @@
       overflow-y:auto;-webkit-overflow-scrolling:touch;
       padding:8px;gap:7px;box-shadow:-4px 0 0 #ead9ad;}
     .ans-display{flex:0 0 auto;min-height:44px;font-size:26px;}
+    .choices{flex:0 0 auto;}
+    .choices.show{flex-direction:column;}
     .memo-wrap{flex:0 0 auto;}
     .keypad{flex:0 0 auto;margin-top:0;gap:6px;}
     .key{height:clamp(34px,7vh,46px);font-size:20px;}
@@ -289,7 +289,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo"><span class="gizmo">📐</span>分度器マスター<span class="ver">v11</span></div>
+    <div class="logo"><span class="gizmo">📐</span>分度器マスター<span class="ver">v13</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -311,43 +311,14 @@
       </div>
 
       <svg id="stage" xmlns="http://www.w3.org/2000/svg"></svg>
-      <div class="helpnote" id="helpnote"></div>
-
-      <div id="calcPop">
-        <div class="calc-card">
-          <div class="calc-head">🧮 でんたく <button class="calc-close" id="calcClose">✕</button></div>
-          <div class="calc-screen" id="calcScreen">0</div>
-          <div class="calc-grid">
-            <button class="cbtn cfn" data-c="C">C</button>
-            <button class="cbtn cfn" data-c="DEL">⌫</button>
-            <button class="cbtn cop" data-c="÷">÷</button>
-            <button class="cbtn cop" data-c="×">×</button>
-            <button class="cbtn" data-c="7">7</button>
-            <button class="cbtn" data-c="8">8</button>
-            <button class="cbtn" data-c="9">9</button>
-            <button class="cbtn cop" data-c="-">−</button>
-            <button class="cbtn" data-c="4">4</button>
-            <button class="cbtn" data-c="5">5</button>
-            <button class="cbtn" data-c="6">6</button>
-            <button class="cbtn cop" data-c="+">＋</button>
-            <button class="cbtn" data-c="1">1</button>
-            <button class="cbtn" data-c="2">2</button>
-            <button class="cbtn" data-c="3">3</button>
-            <button class="cbtn ceq" data-c="=" rowspan>＝</button>
-            <button class="cbtn czero" data-c="0">0</button>
-            <button class="cbtn" data-c="180">180</button>
-            <button class="cbtn" data-c="360">360</button>
-          </div>
-          <button class="calc-tomemo" id="calcToMemo">📝 メモに かく</button>
-        </div>
-      </div>
     </div>
 
     <aside id="panel">
       <div class="ans-display" id="ansDisplay"><span class="ph">?</span></div>
+      <div class="choices" id="choices"></div>
       <div class="memo-wrap" id="memoWrap">
-        <div class="memo-label">📝 けいさんメモ（タップで でんたく）</div>
-        <textarea class="memo" id="memo" placeholder="タップして でんたくで けいさん" inputmode="none" readonly></textarea>
+        <div class="memo-label">📝 けいさんメモ</div>
+        <div class="memo" id="memo"><span class="memo-ph">「？」に 角度を 入れると しきが でるよ</span></div>
       </div>
       <div class="keypad" id="keypad">
         <button class="key" data-k="1">1</button>
@@ -497,6 +468,12 @@ function genQuestion(level){
   }
   q.target=target;
 
+  // ② レベル1〜3は2択。分度器の内・外の目もりの よみまちがいを表す
+  // 「180 − 角度」を まぎらわしい もう一方の選択肢にする（例: 60↔120, 55↔125）。
+  if(level===1||level===2||level===3){
+    q.distractor=180-target;
+  }
+
   if(level===4){
     // horizontal straight line through vertex; one ray goes up dividing it.
     baseDir=0; // ray to the right (0°) and left (180°)
@@ -560,6 +537,7 @@ function render(){
   drawHint();
   if(state.loupe) drawLoupe();
   updateLoupeBtn();
+  if(state.q) updateFlow();   // ④ 分度器の状態に応じて上のウィンドウのステップを更新
 }
 
 /* ① The loupe is only useful once the protractor is placed so an angle can be
@@ -1342,7 +1320,6 @@ function pointerDown(e){
     if(state.level===5 && state.loupe && state.activePart===part){
       state.loupePart=part;
       state.loupeFocus=null;
-      helpnote('この 角の 目もりを 拡大したよ。分度器の 数字を よんで「？」に 入力しよう');
     }
     render();
     e.preventDefault();
@@ -1444,7 +1421,6 @@ function pointerMove(e){
       p2.x=clamp(W-R-20, R+20, W-R-20);
       p2.y=clamp(R+30, R+20, H-30);
       if(dist(p2.x,p2.y,q.cx,q.cy) < R+60){ p2.y=clamp(H-40, R+20, H-30); }
-      helpnote('点線が まっすぐに ロックされたよ！分度器を ちょうてんに あわせて（ドラッグ）、2つの「？」を タップして 入力しよう（180 + □）');
     }
     render();
   }
@@ -1499,25 +1475,29 @@ const ansDisplay=document.getElementById('ansDisplay');
 /* ⑥⑦ derive the final answer (and memo) from the tapped angle parts */
 function syncLevel5Answer(){
   if(state.level!==5) return;
-  const memo=document.getElementById('memo');
   if(state.mode==='aux'){
     const a=parseInt(state.partInputs.a,10);
     const b=parseInt(state.partInputs.b,10);
     if(!isNaN(a) && !isNaN(b)){
       const sum=a+b;
       state.answer=String(sum);
-      memo.value=`${a} + ${b} = ${sum}`;
+      setMemo(`${a} + ${b} = <span class="eq-result">${sum}°</span>`, true);
+    }else if(!isNaN(a) || !isNaN(b)){
+      // 片方だけ入っているときも式の形を見せる
+      const av = isNaN(a)?'？':a, bv = isNaN(b)?'？':b;
+      state.answer="";
+      setMemo(`${av} + ${bv} = <span class="eq-result">？</span>`, false);
     }else{
-      state.answer=""; memo.value='';
+      state.answer=""; setMemo('');
     }
   }else if(state.mode==='360'){
     const a=parseInt(state.partInputs.a,10);
     if(!isNaN(a)){
       const diff=360-a;
       state.answer=String(diff);
-      memo.value=`360 - ${a} = ${diff}`;
+      setMemo(`360 − ${a} = <span class="eq-result">${diff}°</span>`, true);
     }else{
-      state.answer=""; memo.value='';
+      state.answer=""; setMemo('');
     }
   }
   renderAnswer();
@@ -1548,6 +1528,16 @@ document.getElementById('keypad').addEventListener('click',e=>{
   // strip leading zeros
   state.answer=state.answer.replace(/^0+(?=\d)/,'');
   renderAnswer();
+  // ③ レベル4: 入力した答えで「180 − □ = 答え」を計算メモに表示
+  if(state.level===4){
+    const known=state.q.known;
+    if(state.answer!==''){
+      const v=parseInt(state.answer,10);
+      setMemo(`180 − ${known} = <span class="eq-result">${v}°</span>`, true);
+    }else{
+      setMemo(`180 − ${known} = <span class="eq-result">？</span>`, false);
+    }
+  }
 });
 
 /* tapping the answer-display deselects any level-5 "?" part so the keypad types
@@ -1555,7 +1545,6 @@ document.getElementById('keypad').addEventListener('click',e=>{
 ansDisplay.addEventListener('click',()=>{
   if(state.level===5 && state.activePart){
     state.activePart=null;
-    helpnote('こたえを テンキーで にゅうりょくしてね');
     render();
   }
 });
@@ -1571,8 +1560,10 @@ function judge(){
     confettiBurst();
     setTimeout(nextQuestion,1400);
   }else{
-    toast(false,'もういちど 考えてみよう！','「ヒント」ボタンを おしてみよう💡');
+    toast(false,'もういちど 考えてみよう！','「💡ヒント」や「🔍ルーペ」を つかってみよう');
     state.answer=""; renderAnswer();
+    // ② 2択モード: 選択をリセットしてもう一度選べるように
+    document.querySelectorAll('.choice-btn').forEach(x=>x.classList.remove('picked'));
   }
 }
 
@@ -1584,6 +1575,7 @@ function startLevel(lv){
 function newQuestion(){
   state.q=genQuestion(state.level);
   state.answer=""; state.hint=false; state.loupe=false; state.loupeFocus=null; state.loupePart=null;
+  const hb=document.getElementById('hintBtn'); if(hb) hb.classList.remove('chosen');
   state.extended=false; state.mode=null; state.auxAngle=null; state.auxLocked=false; state.auxBase='A';
   state.partInputs={a:"",b:""}; state.activePart=null;
   closeCalc();   // ③ hide the calculator when switching question/level
@@ -1605,20 +1597,85 @@ function nextQuestion(){
   newQuestion();
 }
 function setQuestionText(){
-  const q=state.q;
+  updateFlow();
+}
+
+/* ④ 上のウィンドウ（questionbar）に「作業の流れ」を段階表示する。
+   旧 helpnote と「この角の大きさは何度かな？」を統合し、いま何をすべきかを
+   step として出す。分度器の状態（出ているか・頂点ロック・辺ロック）から
+   現在のステップを判定する。 */
+function currentStep(){
+  const q=state.q; if(!q) return null;
+  const p=state.prot;
+  const lv=q.level;
+  if(lv===1||lv===2||lv===3){
+    if(lv===3 && !state.extended){
+      return {icon:'📏',main:'まず「へんを のばす」を おそう',
+        sub:'へんが みじかいから、のばしてから はかるよ'};
+    }
+    if(!p.vlock){
+      return {icon:'🎯',main:'分度器を 角の ちょうてんに あわせてね',
+        sub:'分度器を ドラッグして うごかそう（じどうで ロック）'};
+    }
+    if(!p.elock){
+      return {icon:'📐',main:'分度器の 0度の 線を へんに あわせてね',
+        sub:'↻ ハンドルを まわして 0度を ぴったり あわせよう'};
+    }
+    return {icon:'🔢',main:'目もりを よんで こたえを えらぼう',
+      sub:'よみにくいときは 🔍ルーペ や 💡ヒントを つかってね'};
+  }
+  if(lv===4){
+    return {icon:'🧮',main:'「？」の 角は なん度かな？',
+      sub:'分度器は つかわないよ。180度から かんがえてね（180 − □）'};
+  }
+  // level 5
+  if(!state.mode){
+    return {icon:'🤔',main:'180度より 大きい 角だよ。ほうほうを えらんでね',
+      sub:'「✏️補助線を引く」か「🔄360度から引く」を えらぼう'};
+  }
+  if(state.mode==='aux'){
+    if(!state.auxLocked){
+      return {icon:'✏️',main:'点線を まっすぐ(180度)の のばした線に あわせよう',
+        sub:'どちらかの へんを ドラッグで まっすぐ のばすよ'};
+    }
+    if(!p.vlock){
+      return {icon:'🎯',main:'分度器を 角の ちょうてんに あわせてね',
+        sub:'分度器を ドラッグして うごかそう（じどうで ロック）'};
+    }
+    return {icon:'🔢',main:'2つの「？」を タップして 入力しよう（180 + □）',
+      sub:'目もりを よんで 入力すると、しきが けいさんされるよ'};
+  }
+  if(state.mode==='360'){
+    if(!p.vlock){
+      return {icon:'🎯',main:'分度器を 角の ちょうてんに あわせてね',
+        sub:'分度器を ドラッグして うごかそう（じどうで ロック）'};
+    }
+    return {icon:'🔢',main:'内がわの「？」を タップして 入力しよう（360 − □）',
+      sub:'目もりを よんで 入力すると、しきが けいさんされるよ'};
+  }
+  return null;
+}
+let _lastStepMain='';
+function updateFlow(flash){
+  const q=state.q; if(!q) return;
   document.getElementById('qnum').textContent=`${state.qIndex+1}/${state.qPerLevel}`;
-  const texts={
-    1:'この 角の 大きさは なん度かな？（分度器で はかろう）',
-    2:'この 角の 大きさは なん度かな？（鈍角に ちゅうい！）',
-    3:'へんが みじかいよ。「へんを のばす」を つかおう！',
-    4:'「？」の 角は なん度かな？（けいさんで もとめよう）',
-    5:'180度より 大きい 角だよ。ほうほうを えらんでね！'
-  };
-  document.getElementById('qtext').textContent=texts[q.level];
+  const step=currentStep();
+  const qt=document.getElementById('qtext');
+  if(!step){ qt.textContent=''; return; }
+  qt.innerHTML=
+    `<span class="qstep"><span class="stepicon">${step.icon}</span>${step.main}</span>`+
+    (step.sub?`<span class="qsub">${step.sub}</span>`:'');
+  // ステップが変わったときだけ軽くフラッシュして注意を引く
+  if(flash!==false && step.main!==_lastStepMain){
+    const bar=document.getElementById('questionbar');
+    bar.classList.remove('flash'); void bar.offsetWidth; bar.classList.add('flash');
+  }
+  _lastStepMain=step.main;
 }
 function configUIForLevel(){
   const lv=state.level;
   document.getElementById('hintBtn').style.display = 'flex';
+  document.getElementById('hintBtn').classList.remove('chosen');
   document.getElementById('extendBtn').style.display = (lv===3)?'flex':'none';
   document.getElementById('extendBtn').disabled = false;
   document.getElementById('auxBtn').style.display = (lv===5)?'flex':'none';
@@ -1627,39 +1684,84 @@ function configUIForLevel(){
   document.getElementById('loupeBtn').classList.remove('on');
   document.getElementById('auxBtn').classList.remove('chosen');
   document.getElementById('from360Btn').classList.remove('chosen');
+  // ② レベル1〜3は2択UI。テンキー・こたえるボタンを隠し、2択ボタンを出す
+  const twoChoice=(lv===1||lv===2||lv===3);
+  document.getElementById('keypad').style.display = twoChoice?'none':'grid';
+  document.querySelector('.rightcol').style.display = twoChoice?'none':'flex';
+  document.getElementById('choices').classList.toggle('show', twoChoice);
+  if(twoChoice) buildChoices();
+  else document.getElementById('choices').innerHTML='';
   // memo
-  const showMemoLevel=(lv===4)||(lv===5);
   document.getElementById('memoWrap').classList.toggle('show', lv===4); // L5 memo appears after choosing
-  document.getElementById('memo').value='';
-  // help note
-  const notes={
-    1:'分度器を 角の ちょうてんに あわせてね（じどうで ロックされるよ）',
-    2:'90度より 大きいよ。目もりの よみまちがいに 気をつけて！',
-    3:'まず「へんを のばす」、それから 分度器で はかろう',
-    4:'分度器は つかわないよ。180度から かんがえてね',
-    5:'「補助線を引く」か「360度から引く」を えらんでね'
-  };
-  helpnote(notes[lv]);
+  if(lv===4){ setMemo(`180 − ${state.q.known} = <span class="eq-result">？</span>`, false); }
+  else { setMemo(''); }
 }
-function helpnote(t){ document.getElementById('helpnote').textContent=t||''; document.getElementById('helpnote').style.display=t?'block':'none'; }
+
+/* ② 2択ボタンを作る（正解と「180−角度」をシャッフルして並べる） */
+function buildChoices(){
+  const q=state.q; const box=document.getElementById('choices');
+  box.innerHTML='';
+  const ql=document.createElement('div');
+  ql.className='choice-q'; ql.textContent='この 角は どっち？';
+  box.appendChild(ql);
+  let opts=[q.target, q.distractor];
+  if(opts[0]===opts[1]) opts=[q.target, q.target+5]; // 念のため重複回避
+  if(Math.random()<0.5) opts.reverse();
+  for(const v of opts){
+    const b=document.createElement('button');
+    b.className='choice-btn';
+    b.innerHTML=`${v}<span class="cdeg">°</span>`;
+    b.onclick=()=>chooseAnswer(v,b);
+    box.appendChild(b);
+  }
+}
+/* ② 2択を選んだら即判定 */
+function chooseAnswer(val,btn){
+  haptic();
+  document.querySelectorAll('.choice-btn').forEach(x=>x.classList.remove('picked'));
+  btn.classList.add('picked');
+  state.answer=String(val);
+  renderAnswer();
+  judge();
+}
+function helpnote(t){
+  // 旧・画面下のヘルプは廃止。一時的な案内は上のウィンドウの sub 行に出し、
+  // 通常の作業フローは updateFlow() が管理する。
+  if(!t){ updateFlow(false); return; }
+  const qt=document.getElementById('qtext');
+  const step=currentStep();
+  const main = step? step.main : '';
+  const icon = step? step.icon : '💡';
+  qt.innerHTML=
+    `<span class="qstep"><span class="stepicon">${icon}</span>${main}</span>`+
+    `<span class="qsub">${t}</span>`;
+}
 function showMemo(){ document.getElementById('memoWrap').classList.add('show'); }
 
 /* tool buttons */
-document.getElementById('hintBtn').addEventListener('mousedown',()=>setHint(true));
-document.getElementById('hintBtn').addEventListener('touchstart',e=>{e.preventDefault();setHint(true);},{passive:false});
-window.addEventListener('mouseup',()=>setHint(false));
-window.addEventListener('touchend',()=>setHint(false));
-function setHint(on){
-  if(on){
-    // ② Only allow the hint once the protractor is actually placed to measure
-    // (locked on the angle vertex). Level 4 uses no protractor, so it's exempt.
-    // Level 5 in aux mode before the protractor returns is also exempt-by-mode.
-    if(!hintReady()){
-      helpnote('分度器を 角の ちょうてんに あわせてから ヒントを 押してね');
-      return;
-    }
+// ② ヒントはトグル式（押すたびにオン/オフ）。ルーペとは独立して共存する。
+// ボタンは stage-wrap の子なので、押下イベントが下の SVG (pointerDown) に伝播し
+// 「空きスペースのタップ」と誤判定されてルーペが解除されるのを防ぐため、
+// pointerdown / mousedown / touchstart すべてで stopPropagation する。
+['pointerdown','mousedown','touchstart'].forEach(type=>{
+  document.getElementById('hintBtn').addEventListener(type,e=>{
+    e.stopPropagation();
+    if(type==='touchstart') e.preventDefault();
+  },{passive:false});
+});
+document.getElementById('hintBtn').addEventListener('click',e=>{
+  e.stopPropagation();
+  toggleHint();
+});
+function toggleHint(){
+  // turning the hint ON requires the protractor to be placed (level 4 exempt)
+  if(!state.hint && !hintReady()){
+    helpnote('分度器を 角の ちょうてんに あわせてから ヒントを 押してね');
+    return;
   }
-  if(state.hint===on)return; state.hint=on; render();
+  state.hint=!state.hint;
+  document.getElementById('hintBtn').classList.toggle('chosen',state.hint);
+  render();
 }
 // is the protractor positioned so a hint (number-band guidance) makes sense?
 function hintReady(){
@@ -1677,29 +1779,32 @@ document.getElementById('loupeBtn').addEventListener('click',function(){
     return;
   }
   state.loupe=!state.loupe; this.classList.toggle('on',state.loupe);
+  let note=null;
   if(!state.loupe){ state.loupeFocus=null; state.loupePart=null; }
   else if(state.level===5){
     state.loupeFocus=null;
     if(state.activePart){
-      // a "?" is already chosen → magnify its scale right away (⑦)
       state.loupePart=state.activePart;
-      helpnote('この 角の 目もりを 拡大したよ。分度器の 数字を よんで「？」に 入力しよう🔍');
+      note='この 角の 目もりを 拡大したよ。数字を よんで「？」に 入力しよう🔍';
     }else{
       state.loupePart=null;
-      helpnote('はかりたい 角の「？」を おすと、その 目もりが 拡大されるよ🔍');
+      note='はかりたい 角の「？」を おすと、その 目もりが 拡大されるよ🔍';
     }
+  }else{
+    note='目もりを 拡大したよ。💡ヒントも いっしょに つかえるよ🔍';
   }
   render();
+  if(note) helpnote(note);   // render() の後に出して上書きされないように
 });
 document.getElementById('extendBtn').addEventListener('click',function(){
-  state.extended=true; this.disabled=true; helpnote('へんが のびたよ！分度器で 角を はかろう'); render();
+  state.extended=true; this.disabled=true; render();
 });
 document.getElementById('auxBtn').addEventListener('click',function(){
   state.mode='aux'; state.prot.visible=false;
   state.auxAngle=norm360(state.q.rayA+ state.q.target/2); state.auxLocked=false; state.auxBase='A';
   state.partInputs={a:"",b:""}; state.activePart=null;
   this.classList.add('chosen'); document.getElementById('from360Btn').classList.remove('chosen');
-  helpnote('点線を ドラッグして、どちらかの 辺の まっすぐ(180度)の のばした線に あわせよう');
+  showMemo();
   document.getElementById('from360Btn').disabled=false;
   render();
 });
@@ -1715,7 +1820,6 @@ document.getElementById('from360Btn').addEventListener('click',function(){
   if(dist(p.x,p.y,state.q.cx,state.q.cy) < R+60){ p.y=clamp(H-40, R+20, H-30); }
   this.classList.add('chosen'); document.getElementById('auxBtn').classList.remove('chosen');
   showMemo();
-  helpnote('分度器を ちょうてんに あわせて（ドラッグ）、内がわの「？」を タップして 入力しよう（360 −□）');
   render();
 });
 
@@ -1754,7 +1858,7 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 function welcome(){
   openModal(`
     <div class="big">📐✨</div>
-    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v11</span></h2>
+    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v13</span></h2>
     <p>分度器の つかいかたを マスターしよう！<br>やりたい レベルを えらんでね！</p>
     <div class="lvlpicker" id="lp"></div>
     <button onclick="window._begin()">▶ レベル1から はじめる</button>
@@ -1777,67 +1881,27 @@ function welcome(){
   window._begin=()=>{closeModal();startLevel(1);};
 }
 
-/* ================= CALCULATOR (levels 4 & 5) ================= */
-const calcState={expr:'', justEval:false};
-function openCalc(){
-  // seed the calculator with whatever is already in the memo (digits/operators only)
-  const memoVal=document.getElementById('memo').value.replace(/[^0-9+\-×÷*/]/g,'');
-  calcState.expr=memoVal; calcState.justEval=false;
-  renderCalc();
-  document.getElementById('calcPop').classList.add('show');
-}
-function closeCalc(){ document.getElementById('calcPop').classList.remove('show'); }
-function renderCalc(){
-  document.getElementById('calcScreen').textContent = calcState.expr===''?'0':calcState.expr;
-}
-function calcInput(c){
-  const ops=['+','-','×','÷'];
-  if(c==='C'){ calcState.expr=''; calcState.justEval=false; }
-  else if(c==='DEL'){ calcState.expr=calcState.expr.slice(0,-1); calcState.justEval=false; }
-  else if(c==='='){
-    const r=evalExpr(calcState.expr);
-    if(r!==null){ calcState.expr=String(r); calcState.justEval=true; }
+/* ================= 計算メモ（③ 電卓を廃止し、？への入力で自動計算） =================
+   レベル4・5で「？」に角度を入力すると、syncLevel5Answer / レベル4の入力処理が
+   この setMemo を呼んで、式を大きく表示する。 */
+function setMemo(html, hasValue){
+  const m=document.getElementById('memo');
+  if(!m) return;
+  if(!html){
+    m.innerHTML='<span class="memo-ph">「？」に 角度を 入れると しきが でるよ</span>';
+    m.classList.remove('has-value');
+    return;
   }
-  else if(ops.includes(c)){
-    if(calcState.expr===''){ if(c==='-') calcState.expr='-'; }
-    else if(ops.includes(calcState.expr.slice(-1))){ calcState.expr=calcState.expr.slice(0,-1)+c; }
-    else calcState.expr+=c;
-    calcState.justEval=false;
+  const prev=m.dataset.expr||'';
+  m.innerHTML=html;
+  m.classList.toggle('has-value', !!hasValue);
+  m.dataset.expr=html;
+  // 式が更新されたら軽くフラッシュして「式ができたよ」と気づかせる
+  if(hasValue && html!==prev){
+    m.classList.remove('flash'); void m.offsetWidth; m.classList.add('flash');
   }
-  else{ // digits or 180 / 360 chips
-    if(calcState.justEval && !ops.includes(calcState.expr.slice(-1))){ calcState.expr=''; }
-    calcState.expr+=c; calcState.justEval=false;
-  }
-  renderCalc();
 }
-function evalExpr(s){
-  if(!s) return null;
-  let js=s.replace(/×/g,'*').replace(/÷/g,'/');
-  if(/[+\-*/]$/.test(js)) js=js.slice(0,-1); // trailing operator
-  if(!/^[-0-9+*/.() ]+$/.test(js)) return null;
-  try{ const v=Function('"use strict";return ('+js+')')(); 
-    if(typeof v!=='number'||!isFinite(v)) return null;
-    return Math.round(v*100)/100;
-  }catch(e){ return null; }
-}
-(function wireCalc(){
-  const memo=document.getElementById('memo');
-  const open=()=>{ if(state.level===4||state.level===5) openCalc(); };
-  memo.addEventListener('focus',open);
-  memo.addEventListener('click',open);
-  document.getElementById('calcClose').addEventListener('click',closeCalc);
-  document.getElementById('calcPop').addEventListener('click',e=>{ if(e.target.id==='calcPop') closeCalc(); });
-  document.querySelector('.calc-grid').addEventListener('click',e=>{
-    const c=e.target.dataset?.c; if(c==null) return; calcInput(c); haptic();
-  });
-  document.getElementById('calcToMemo').addEventListener('click',()=>{
-    const r=evalExpr(calcState.expr);
-    const line = (r!==null && !/[+\-×÷]$/.test(calcState.expr) && /[+\-×÷]/.test(calcState.expr))
-      ? `${calcState.expr} = ${r}` : (calcState.expr||'');
-    memo.value=line;
-    closeCalc();
-  });
-})();
+function closeCalc(){ /* 電卓は廃止。互換のための空関数 */ }
 
 /* ================= TOAST / CONFETTI ================= */
 let toastTimer;
