@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>分度器マスター v17</title>
+<title>分度器マスター v19</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
 
@@ -79,12 +79,13 @@
   main{flex:1 1 auto;display:flex;min-height:0;}
   #stage-wrap{flex:1 1 auto;position:relative;min-width:0;display:flex;flex-direction:column;touch-action:none;}
   .questionbar{
-    position:absolute;top:10px;left:50%;transform:translateX(-50%);
-    background:#fff;border:3px solid var(--sun);border-radius:18px;
-    padding:8px 18px;font-weight:700;font-size:clamp(13px,2.7vw,18px);
+    position:absolute;top:8px;left:50%;transform:translateX(-50%);
+    background:rgba(255,255,255,.94);border:3px solid var(--sun);border-radius:16px;
+    padding:6px 14px;font-weight:700;font-size:clamp(12px,2.4vw,17px);
     box-shadow:0 4px 0 var(--sun-dark),0 8px 16px var(--shadow);
-    z-index:12;text-align:center;max-width:92%;color:var(--ink);
-    display:flex;align-items:center;gap:8px;line-height:1.35;
+    z-index:12;text-align:center;max-width:min(560px,84%);color:var(--ink);
+    display:flex;align-items:center;gap:8px;line-height:1.3;
+    backdrop-filter:blur(2px);
   }
   .questionbar .qnum{background:var(--coral);color:#fff;border-radius:10px;padding:1px 9px;font-weight:900;font-size:.85em;flex:0 0 auto;}
   /* 作業フローのステップ表示（上のウィンドウに統合された旧helpnote） */
@@ -153,8 +154,20 @@
     display:flex;align-items:center;justify-content:center;gap:2px;
   }
   .choice-btn .cdeg{font-size:.55em;color:var(--sky-dark);}
+  .choice-btn.est{flex-direction:column;gap:4px;font-size:clamp(18px,4.6vw,26px);padding:14px 8px;}
+  .choice-btn.est .cdeg{font-size:.7em;}
+  .choice-btn.est .estbig{font-size:1em;white-space:nowrap;}
   .choice-btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--sky-dark);}
   .choice-btn.picked{background:linear-gradient(180deg,var(--sun),var(--sun-dark));border-color:var(--sun-dark);box-shadow:0 5px 0 #c99211;}
+  /* ② 見積もり「数あてチャレンジ」入口ボタン */
+  .est-challenge-btn{
+    border:4px solid var(--berry);border-radius:18px;padding:12px 10px;
+    font-family:inherit;font-weight:900;font-size:clamp(15px,3.6vw,21px);color:#fff;
+    background:linear-gradient(180deg,#ff79b6,var(--berry));cursor:pointer;transition:.1s;
+    box-shadow:0 5px 0 #b32d72,0 7px 12px var(--shadow);
+    display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;
+  }
+  .est-challenge-btn:active{transform:translateY(4px);box-shadow:0 1px 0 #b32d72;}
 
   .memo-wrap{display:none;flex-direction:column;gap:5px;}
   .memo-wrap.show{display:flex;}
@@ -247,6 +260,16 @@
 
   /* (旧 helpnote は questionbar に統合) */
 
+  /* タブレット帯（横:サイドパネル配置だが画面が広く、上のウィンドウが大きく
+     なりすぎて分度器に重なりがちなのでコンパクト化する） */
+  @media(min-width:721px) and (max-width:1180px){
+    .questionbar{
+      top:6px;padding:5px 12px;font-size:clamp(12px,1.7vw,16px);
+      max-width:min(440px,52%);border-width:2.5px;border-radius:14px;
+    }
+    .questionbar .qsub{font-size:.74em;}
+  }
+
   @media(max-width:720px){
     main{flex-direction:column;}
     #stage-wrap{flex:1 1 auto;min-height:0;}
@@ -255,9 +278,10 @@
       padding-bottom:calc(8px + env(safe-area-inset-bottom));}
     .ans-display{flex:1 1 100%;min-height:48px;font-size:30px;order:1;}
     .choices{flex:1 1 100%;order:2;}
-    .choices.show{flex-direction:row;gap:10px;}
-    .choices.show .choice-q{flex:1 1 100%;margin:0;}
-    .choices.show .choice-btn{flex:1 1 0;padding:14px 6px;}
+    .choices.show{flex-direction:row;gap:10px;flex-wrap:wrap;}
+    .choices.show .choice-q{flex:1 1 100%;margin:0;order:1;}
+    .choices.show .est-challenge-btn{flex:0 0 100%;order:3;width:100%;}
+    .choices.show .choice-btn{flex:1 1 0;padding:14px 6px;order:2;}
     .memo-wrap{flex:1 1 100%;order:2;}
     .keypad{order:4;flex:1 1 58%;margin-top:0;gap:6px;}
     .key{height:42px;font-size:20px;}
@@ -265,6 +289,9 @@
     .submit{padding:10px;}
     .toolcol{top:54px;}
     .actioncol{top:54px;}
+    .questionbar{top:5px;padding:5px 12px;font-size:clamp(11px,2.9vw,15px);
+      max-width:min(360px,90%);border-width:2.5px;}
+    .questionbar .qsub{font-size:.76em;}
   }
 
   /* 横向き・縦が低い画面: パネルを右側の縦並びに戻し、
@@ -291,7 +318,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v17</span></div>
+    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v19</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -425,8 +452,8 @@ function figureCenter(){
 
 /* ================= GLOBAL STATE ================= */
 const state={
-  level:1, qIndex:0, qPerLevel:5, score:0,
-  levelDone:[false,false,false,false,false],
+  level:0, qIndex:0, qPerLevel:5, score:0,
+  levelDone:[false,false,false,false,false,false],
   q:null,            // current question object
   answer:"",         // typed answer
   // protractor
@@ -445,6 +472,7 @@ const state={
   // level5 tappable angle parts (⑥⑦): values typed into the "?" markers on the figure
   partInputs:{a:"",b:""},   // a = first part (e.g. 180), b = second part (e.g. □)
   activePart:null,          // which part the keypad currently edits: 'a' | 'b' | null
+  estChallenge:false,       // ② 見積もりレベルの「数あてチャレンジ」モードか
 };
 
 /* ================= QUESTION GENERATION ================= */
@@ -456,6 +484,17 @@ function genQuestion(level){
   // We define base direction and the opening angle. Colors etc.
   const [cx,cy]=figureCenter();
   let target, baseDir, q={level,cx,cy};
+  if(level===0){ // ① 見積もりレベル: 分度器を使わず 0〜180度の角を見て
+                 //    90度より大きい/小さいを当てる。90度ちょうど付近は避ける。
+    target=pick([20,25,30,35,40,45,50,55,60,70,75,
+                 105,110,115,120,125,130,140,150,160,165,170]);
+    q.target=target;
+    q.estimate=true;
+    baseDir=pick([0,0,0,10,20,180,200,330]); // 多くは水平で読みやすく
+    q.rayA=norm360(baseDir);
+    q.rayB=norm360(baseDir+target);
+    return q;
+  }
   if(level===1){ // acute 5..85
     target=pick([20,25,30,35,40,45,50,55,60,65,70,75,80,85]);
   }else if(level===2){ // obtuse 95..175
@@ -995,13 +1034,13 @@ function drawProtractor(){
     // larger, easier-to-grab handle. An invisible wide hit-pad makes the touch
     // target generous so the protractor doesn't accidentally unlock.
     const pad=el('circle',{cx:R-3,cy:0,r:34,fill:'transparent'});
-    pad.dataset.role='rotate'; pad.style.cursor='grab';
+    pad.dataset.role='rotate'; pad.style.cursor='grab'; pad.dataset.noloupe='1';
     grp.appendChild(pad);
     const hub=el('circle',{cx:R-3,cy:0,r:18,fill:'var(--sun)',stroke:'#fff','stroke-width':3.5,filter:'url(#soft)'});
-    hub.dataset.role='rotate'; hub.style.cursor='grab';
+    hub.dataset.role='rotate'; hub.style.cursor='grab'; hub.dataset.noloupe='1';
     grp.appendChild(hub);
     const rot=el('text',{x:R-3,y:1,'text-anchor':'middle','dominant-baseline':'central','font-size':18,'font-weight':900,fill:'#fff'});
-    rot.textContent='↻'; rot.dataset.role='rotate';
+    rot.textContent='↻'; rot.dataset.role='rotate'; rot.dataset.noloupe='1';
     rot.setAttribute('transform',`rotate(${p.rot} ${R-3} 0)`);
     grp.appendChild(rot);
   }
@@ -1198,7 +1237,13 @@ function drawLoupe(){
   // cloned figure+protractor scaled around focus
   const tg=el('g',{transform:`translate(${lx},${ly}) scale(${k}) translate(${-fx},${-fy})`});
   tg.appendChild(layers.fig.cloneNode(true));
-  if(p.visible) tg.appendChild(layers.prot.cloneNode(true));
+  if(p.visible){
+    // ② 拡大図には回転ハンドル（スピンボタン）を出さない。拡大すると目もりを
+    //    覆い隠してしまうため、クローンから data-noloupe 要素を取り除く。
+    const protClone=layers.prot.cloneNode(true);
+    protClone.querySelectorAll('[data-noloupe]').forEach(n=>n.remove());
+    tg.appendChild(protClone);
+  }
   inner.appendChild(tg);
   g.appendChild(inner);
   // ring
@@ -1568,6 +1613,48 @@ ansDisplay.addEventListener('click',()=>{
 document.getElementById('submitBtn').addEventListener('click',judge);
 function judge(){
   if(state.answer===""){ toast(false,'すうじを いれてね','テンキーで こたえを にゅうりょく'); return; }
+  // ① 見積もりレベル: 90度より大きい/小さいで判定（ぴったりの数値は不要）
+  if(state.q.level===0){
+    // ② 数あてチャレンジ: 角度の数値を予想。誤差で 花丸/◎/○ を判定
+    if(state.estChallenge){
+      const guess=parseInt(state.answer,10);
+      if(isNaN(guess)){ toast(false,'すうじを いれてね','テンキーで よそうを にゅうりょく'); return; }
+      const err=Math.abs(guess-state.q.target);
+      if(err===0){
+        state.score+=3; document.getElementById('score').textContent=state.score;
+        toast(true,'🌸 花まる！ ぴったり！！',`せいかいは ${state.q.target}度。まさに 名人わざ！ (+3)`);
+        confettiBurst(); confettiBurst();
+        setTimeout(nextQuestion,1800);
+      }else if(err<=10){
+        state.score+=2; document.getElementById('score').textContent=state.score;
+        toast(true,`◎ ニアピン！`,`せいかいは ${state.q.target}度（あと ${err}度！）すごい目！ (+2)`);
+        confettiBurst();
+        setTimeout(nextQuestion,1800);
+      }else if(err<=20){
+        state.score+=1; document.getElementById('score').textContent=state.score;
+        toast(true,`○ おしい！`,`せいかいは ${state.q.target}度（${err}度ずれ）いい かんかく！ (+1)`);
+        confettiBurst();
+        setTimeout(nextQuestion,1800);
+      }else{
+        const dir=guess<state.q.target?'もっと 大きいよ':'もっと 小さいよ';
+        toast(false,'△ ざんねん！もう一度',`せいかいは ${state.q.target}度。${dir}`);
+        state.answer=""; renderAnswer();
+      }
+      return;
+    }
+    const correct = state.q.target<90 ? 'small' : 'big';
+    if(state.answer===correct){
+      state.score++; document.getElementById('score').textContent=state.score;
+      toast(true,'せいかい！',pick(['いい目だね！','その通り！','よく見えたね！','かんぺき！']));
+      confettiBurst();
+      setTimeout(nextQuestion,1400);
+    }else{
+      toast(false,'おしい！もういちど 見てみよう','90度（まっすぐ立った かど）と くらべてみてね');
+      state.answer=""; renderAnswer();
+      document.querySelectorAll('.choice-btn').forEach(x=>x.classList.remove('picked'));
+    }
+    return;
+  }
   const val=parseInt(state.answer,10);
   if(val===state.q.target){
     state.score++; document.getElementById('score').textContent=state.score;
@@ -1593,13 +1680,15 @@ function newQuestion(){
   const hb=document.getElementById('hintBtn'); if(hb) hb.classList.remove('chosen');
   state.extended=false; state.mode=null; state.auxAngle=null; state.auxLocked=false; state.auxBase='A';
   state.partInputs={a:"",b:""}; state.activePart=null;
+  state.estChallenge=false;
   closeCalc();   // ③ hide the calculator when switching question/level
   // protractor reset
   const p=state.prot;
-  p.visible=(state.level!==4);
+  p.visible=(state.level!==4 && state.level!==0);
   const R=protRadius();
   p.x=clamp(state.q.cx, R+8, W-R-8);
-  p.y=clamp(Math.min(H*0.42,R+90), R+8, H-8);
+  // 分度器の上端が上のウィンドウに重ならないよう、上に余白(約110px)を確保してから配置
+  p.y=clamp(Math.max(H*0.46, R+110), R+8, H-8);
   p.rot=0; p.vlock=false; p.elock=false;
   configUIForLevel();
   renderAnswer();
@@ -1623,6 +1712,14 @@ function currentStep(){
   const q=state.q; if(!q) return null;
   const p=state.prot;
   const lv=q.level;
+  if(lv===0){
+    if(state.estChallenge){
+      return {icon:'🎯',main:'この 角は 何度かな？ よそうしてみよう！',
+        sub:'すうじを いれて こたえてね（ぴたりで 花まる！）'};
+    }
+    return {icon:'👀',main:'分度器は つかわないよ。90度より 大きい？ 小さい？',
+      sub:'まっすぐ 立った かど（90度）を 思いうかべて くらべてみよう'};
+  }
   if(lv===1||lv===2||lv===3){
     if(lv===3 && !state.extended){
       return {icon:'📏',main:'まず「へんを のばす」を おそう',
@@ -1689,20 +1786,22 @@ function updateFlow(flash){
 }
 function configUIForLevel(){
   const lv=state.level;
-  document.getElementById('hintBtn').style.display = 'flex';
+  document.getElementById('hintBtn').style.display = (lv===0)?'none':'flex';
   document.getElementById('hintBtn').classList.remove('chosen');
   document.getElementById('extendBtn').style.display = (lv===3)?'flex':'none';
   document.getElementById('extendBtn').disabled = false;
   document.getElementById('auxBtn').style.display = (lv===5)?'flex':'none';
   document.getElementById('from360Btn').style.display = (lv===5)?'flex':'none';
-  document.getElementById('loupeBtn').style.display = (lv===4)?'none':'flex';
+  document.getElementById('loupeBtn').style.display = (lv===4||lv===0)?'none':'flex';
   document.getElementById('loupeBtn').classList.remove('on');
   document.getElementById('auxBtn').classList.remove('chosen');
   document.getElementById('from360Btn').classList.remove('chosen');
-  // ② レベル1〜3は2択UI。テンキー・こたえるボタンを隠し、2択ボタンを出す
-  const twoChoice=(lv===1||lv===2||lv===3);
+  // ② レベル0(見積もり)・1〜3は2択UI。ただし見積もりの「数あてチャレンジ」中はテンキー入力。
+  const estChal=(lv===0 && state.estChallenge);
+  const twoChoice=((lv===0||lv===1||lv===2||lv===3) && !estChal);
   document.getElementById('keypad').style.display = twoChoice?'none':'grid';
   document.querySelector('.rightcol').style.display = twoChoice?'none':'flex';
+  const ad=document.getElementById('ansDisplay'); if(ad) ad.style.display = twoChoice?'none':'flex';
   document.getElementById('choices').classList.toggle('show', twoChoice);
   if(twoChoice) buildChoices();
   else document.getElementById('choices').innerHTML='';
@@ -1716,6 +1815,30 @@ function configUIForLevel(){
 function buildChoices(){
   const q=state.q; const box=document.getElementById('choices');
   box.innerHTML='';
+  // ① 見積もりレベル: 90度より大きい/小さいの2択
+  if(q.level===0){
+    const ql=document.createElement('div');
+    ql.className='choice-q'; ql.textContent='この 角は 90度より…？';
+    box.appendChild(ql);
+    const opts=[
+      {label:'小さい', icon:'🔻', val:'small'},
+      {label:'大きい', icon:'🔺', val:'big'}
+    ];
+    for(const o of opts){
+      const b=document.createElement('button');
+      b.className='choice-btn est';
+      b.innerHTML=`<span class="cdeg">90°より</span><span class="estbig">${o.icon} ${o.label}</span>`;
+      b.onclick=()=>chooseAnswer(o.val,b);
+      box.appendChild(b);
+    }
+    // ② 数あてチャレンジへの入口ボタン
+    const chal=document.createElement('button');
+    chal.className='est-challenge-btn';
+    chal.innerHTML='🎯 すうじを あてる チャレンジ！';
+    chal.onclick=()=>startEstChallenge();
+    box.appendChild(chal);
+    return;
+  }
   const ql=document.createElement('div');
   ql.className='choice-q'; ql.textContent='この 角は どっち？';
   box.appendChild(ql);
@@ -1738,6 +1861,15 @@ function chooseAnswer(val,btn){
   state.answer=String(val);
   renderAnswer();
   judge();
+}
+/* ② 見積もりレベルの「数あてチャレンジ」へ切り替える（テンキー入力で角度を予想） */
+function startEstChallenge(){
+  haptic();
+  state.estChallenge=true;
+  state.answer="";
+  configUIForLevel();        // テンキー表示へ切り替え
+  renderAnswer();
+  updateFlow();              // 上のウィンドウを「何度かな？」案内へ
 }
 function helpnote(t){
   // 旧・画面下のヘルプは廃止。一時的な案内は上のウィンドウの sub 行に出し、
@@ -1848,30 +1980,32 @@ document.getElementById('from360Btn').addEventListener('click',function(){
   render();
 });
 
+/* 内部レベル(0..5) → 画面表示レベル(1..6) */
+function dispLevel(intLv){ return intLv+1; }
 /* level pips */
 function updatePips(){
   const c=document.getElementById('levelpips'); c.innerHTML='';
-  for(let i=1;i<=5;i++){
+  for(let lv=0;lv<=5;lv++){
     const b=document.createElement('div');
-    b.className='pip'+(i===state.level?' active':'')+(state.levelDone[i-1]?' done':'');
-    b.textContent=i; b.title='レベル'+i;
-    b.onclick=()=>{ closeModal(); startLevel(i); };
+    b.className='pip'+(lv===state.level?' active':'')+(state.levelDone[lv]?' done':'');
+    b.textContent=dispLevel(lv); b.title='レベル'+dispLevel(lv);
+    b.onclick=()=>{ closeModal(); startLevel(lv); };
     c.appendChild(b);
   }
 }
 function finishLevel(){
-  state.levelDone[state.level-1]=true; updatePips();
+  state.levelDone[state.level]=true; updatePips();
   const next=state.level<5?state.level+1:null;
   const stars='⭐⭐⭐';
   openModal(`
     <div class="big">🏆</div>
-    <h2>レベル${state.level} クリア！</h2>
+    <h2>レベル${dispLevel(state.level)} クリア！</h2>
     <div class="stars">${stars}</div>
     <p>5もん ぜんぶ おわったよ！<br>いまの ⭐は <b>${state.score}</b>こ</p>
-    ${next?`<button onclick="window._next()">レベル${next}へ ➜</button>`:`<button onclick="window._next()">🎉 ぜんぶ クリア！もういちど</button>`}
-    <button class="alt" onclick="window._retry()">もういちど レベル${state.level}</button>
+    ${next!=null?`<button onclick="window._next()">レベル${dispLevel(next)}へ ➜</button>`:`<button onclick="window._next()">🎉 ぜんぶ クリア！もういちど</button>`}
+    <button class="alt" onclick="window._retry()">もういちど レベル${dispLevel(state.level)}</button>
   `);
-  window._next=()=>{ closeModal(); startLevel(next|| (allDone()?1:state.level+1)); if(!next){state.levelDone=[0,0,0,0,0].map(_=>false);updatePips();} };
+  window._next=()=>{ closeModal(); if(next!=null){ startLevel(next); } else { state.levelDone=[false,false,false,false,false,false]; updatePips(); startLevel(0); } };
   window._retry=()=>{ closeModal(); startLevel(state.level); };
 }
 function allDone(){return state.levelDone.every(Boolean);}
@@ -1883,27 +2017,28 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 function welcome(){
   openModal(`
     <div class="big">📐✨</div>
-    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v17</span></h2>
+    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v19</span></h2>
     <p>分度器の つかいかたを マスターしよう！<br>やりたい レベルを えらんでね！</p>
     <div class="lvlpicker" id="lp"></div>
     <button onclick="window._begin()">▶ レベル1から はじめる</button>
   `, true);
   const lp=document.getElementById('lp');
   const descs=[
+    '分度器を 使わずに 大きさを 見つもろう',  // level0
     '分度器を 使って はかろう',
     '90度より 大きな 角を はかろう',
     '辺が 短いときの はかり方を 知ろう',
     '分度器を 使わないで 求めよう',
     '180度より 大きな 角を はかろう'
   ];
-  for(let i=1;i<=5;i++){
+  for(let lv=0;lv<=5;lv++){
     const b=document.createElement('button');
     b.className='alt';
-    b.innerHTML=`<span class="lvtag">レベル${i}</span><span>${descs[i-1]}</span>`;
-    b.onclick=()=>{closeModal();startLevel(i);};
+    b.innerHTML=`<span class="lvtag">レベル${dispLevel(lv)}</span><span>${descs[lv]}</span>`;
+    b.onclick=()=>{closeModal();startLevel(lv);};
     lp.appendChild(b);
   }
-  window._begin=()=>{closeModal();startLevel(1);};
+  window._begin=()=>{closeModal();startLevel(0);};
 }
 
 /* ================= 計算メモ（③ 電卓を廃止し、？への入力で自動計算） =================
