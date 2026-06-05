@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>分度器マスター v16</title>
+<title>分度器マスター v17</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
 
@@ -56,7 +56,9 @@
     z-index:30;position:relative;
   }
   .logo{font-weight:900;font-size:clamp(16px,3.6vw,24px);letter-spacing:.5px;
-    color:var(--coral-dark);display:flex;align-items:center;gap:6px;white-space:nowrap;}
+    color:var(--coral-dark);display:flex;align-items:center;gap:6px;white-space:nowrap;
+    cursor:pointer;transition:transform .1s;}
+  .logo:active{transform:scale(.94);}
   .logo .gizmo{font-size:1.25em;transform:rotate(-12deg);display:inline-block;}
   .logo .ver{font-size:.5em;font-weight:700;color:#b7a878;background:#fff;
     border:2px solid #e3d2a5;border-radius:8px;padding:1px 6px;margin-left:6px;
@@ -289,7 +291,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo"><span class="gizmo">📐</span>分度器マスター<span class="ver">v16</span></div>
+    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v17</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -1881,7 +1883,7 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 function welcome(){
   openModal(`
     <div class="big">📐✨</div>
-    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v16</span></h2>
+    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v17</span></h2>
     <p>分度器の つかいかたを マスターしよう！<br>やりたい レベルを えらんでね！</p>
     <div class="lvlpicker" id="lp"></div>
     <button onclick="window._begin()">▶ レベル1から はじめる</button>
