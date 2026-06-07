@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>分度器マスター v19</title>
+<title>分度器マスター v22</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
 
@@ -318,7 +318,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v19</span></div>
+    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v22</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -846,18 +846,27 @@ function measuredBoundaries(){
   return {start:q.rayA, end:q.rayB};
 }
 
-/* Returns true when the OUTER (black) ring is the one to read for the angle
-   given by measuredBoundaries(), based on the protractor's current rotation.
-   The end of the baseline that sits on the "start" boundary determines the ring:
-   right end (local 0°, = p.rot) → outer black; left end (local 180°) → inner red. */
+/* Returns true when the OUTER (black) ring is the one to read for the measured
+   angle, based on the protractor's current rotation.
+
+   ① 重要: 辺と 0度線が重なっている方の端が「0」になる。
+     ・右端（ローカル 0° = p.rot）が辺に合っている → 外側（黒）目盛りが 0 から始まる
+     ・左端（ローカル 180° = p.rot+180）が辺に合っている → 内側（赤）目盛りが 0 から始まる
+   どちらの端が「いずれかの辺（boundary）」に重なっているかを判定し、
+   その端で 0 を読む目盛りを返す。start/end の決め打ちはしない。 */
 function whichScale(){
   const q=state.q, p=state.prot;
   if(!q) return true;
   const b=measuredBoundaries(); if(!b) return true;
-  // Which baseline end is aligned with the START boundary?
-  const gap0  =Math.abs(((p.rot      - b.start+540)%360)-180); // right end (0°)
-  const gap180=Math.abs(((p.rot+180  - b.start+540)%360)-180); // left end (180°)
-  // start on the right (0°) end → read outer black; on left (180°) end → inner red.
+  const boundaries=[b.start, b.end];
+  // 右端(0°)・左端(180°) それぞれが、いずれかの境界線にどれだけ近いか。
+  const gapToNearest=(end)=>Math.min(
+    ...boundaries.map(bd=>Math.abs(((end-bd+540)%360)-180))
+  );
+  const gap0  =gapToNearest(p.rot);       // 右端（外側＝黒が 0）
+  const gap180=gapToNearest(p.rot+180);   // 左端（内側＝赤が 0）
+  // 辺に重なっている（＝より近い）端の目盛りを使う。
+  // 右端が辺に合っている → 外側(黒)。左端が辺に合っている → 内側(赤)。
   return gap0<=gap180;
 }
 
@@ -944,8 +953,12 @@ function drawProtractor(){
   // ③ Level 5 also benefits: once the protractor is on the figure (360 mode, or
   // after the auxiliary line is locked) we highlight the ring that the child
   // should read, exactly like the earlier levels.
+  // ⑥ In aux mode the question has TWO "?" angles, so the hint band must only
+  //    appear for the part the child actually tapped. Require activePart/loupePart.
+  const auxPartChosen = !!((state.loupe && state.loupePart) || state.activePart);
   const showBand = state.hint && state.q && state.q.level!==4 &&
-        (state.q.level!==5 ? true : (state.q.level===5 && (state.mode==='360' || (state.mode==='aux' && state.auxLocked))));
+        (state.q.level!==5 ? true : (state.q.level===5 &&
+          (state.mode==='360' || (state.mode==='aux' && state.auxLocked && auxPartChosen))));
   if(showBand){
     const useOuter = whichScale();       // true → outer black ring, false → inner red ring
     const bandR = useOuter ? trB : trR;  // radius of the number ring to cover
@@ -1078,6 +1091,9 @@ function drawHint(){
     const len=rayLen(235);
     if(state.mode==='aux'){
       if(state.auxLocked){
+        // ⑥ only guide once a "?" part is tapped (matches the number-band gate).
+        const auxPartChosen = !!((state.loupe && state.loupePart) || state.activePart);
+        if(!auxPartChosen) return;
         // ③ once locked, the pink number band on the protractor guides the read;
         // just keep a soft glow on the locked straight line.
         const [ex,ey]=polar(cx,cy,state.auxAngle,len+10);
@@ -1271,6 +1287,39 @@ function svgPoint(evt){
   return [ (t.clientX - r.left) * sx, (t.clientY - r.top) * sy ];
 }
 const SNAP_V=34, SNAP_E=8; // snap thresholds
+
+// The set of baseline directions the protractor's 0–180 line may lock onto.
+// The baseline is symmetric, so for each side we allow the ray direction OR its
+// 180° opposite (either physical end can lie on a side).
+function snapTargets(){
+  const q=state.q; if(!q) return [];
+  return [q.rayA, norm360(q.rayA+180), q.rayB, norm360(q.rayB+180)];
+}
+// ② Pick the CLOSEST snap target to the given rotation (not the last match in
+//    array order). Near 180° the four targets collapse into two near-coincident
+//    pairs; last-match-wins could pull rot to the wrong side or refuse a clean
+//    lock. Returns {rot, lock} where lock is true when within SNAP_E.
+function nearestSnap(rot){
+  let best=null, bestDiff=Infinity;
+  for(const ray of snapTargets()){
+    const diff=Math.abs(((rot-ray+540)%360)-180);
+    if(diff<bestDiff){ bestDiff=diff; best=ray; }
+  }
+  if(best!=null && bestDiff<SNAP_E) return {rot:best, lock:true};
+  return {rot, lock:false};
+}
+// ① Recompute elock from the CURRENT rotation whenever the protractor is on the
+//    vertex. This makes elock a derived fact (0° line aligned to a side) instead
+//    of something only set during an active rotate drag — so a protractor that
+//    is dropped already aligned, or nudged by the body, is still considered
+//    "aligned" and the 💡 hint button stays enabled.
+function recomputeElock(){
+  const p=state.prot;
+  if(!(p.visible && p.vlock)){ p.elock=false; return; }
+  const s=nearestSnap(p.rot);
+  if(s.lock){ p.rot=s.rot; p.elock=true; }
+  else { p.elock=false; }
+}
 // ① Touch-friendly hit radii (in px). Fingers are imprecise and the SVG
 //    elements themselves are thin, so on touch devices we make every grab
 //    target noticeably larger than on mouse (where the cursor is precise).
@@ -1424,27 +1473,32 @@ function pointerMove(e){
     if(dist(p.x,p.y,q.cx,q.cy)<SNAP_V){
       p.x=q.cx; p.y=q.cy; p.vlock=true; pulseLock(q.cx,q.cy); haptic();
     }
+    // ① If the protractor lands on the vertex already aligned to a side, treat
+    //    it as aligned (elock) so 💡 hint becomes usable without nudging rotate.
+    recomputeElock();
     render();
   }else if(state.drag.type==='rotate'){
+    // ③ レベル6: 分度器を回転させたら、読みたい角の「？」タップも
+    //    ヒントも解除する（合わせ直したら選び直す運用にして誤読を防ぐ）。
+    if(state.level===5){
+      if(state.activePart){ state.activePart=null; }
+      if(state.hint){
+        state.hint=false;
+        document.getElementById('hintBtn').classList.remove('chosen');
+      }
+      if(state.loupe && state.loupePart){ state.loupePart=null; }
+    }
     // rotate so baseline aligns toward pointer
     let a=angleOf(p.x,p.y,mx,my);
     p.rot=a;
     p.elock=false;
-    // candidate snap directions for the baseline (0–180 line).
-    // ④ The baseline is symmetric: either END (right 0° handle or left 180° end)
-    // can be laid along a ray. So for every ray we allow snapping p.rot to the
-    // ray direction OR to its 180° opposite — the protractor locks on either side.
-    let snaps=[q.rayA, norm360(q.rayA+180), q.rayB, norm360(q.rayB+180)];
-    // ⑧ in level-5 aux mode, also snap & lock onto the locked auxiliary straight
-    // line (its direction and 180° opposite are already covered via rayA above,
-    // but include explicitly for clarity).
-    if(state.level===5 && state.mode==='aux' && state.auxLocked){
-      snaps=[q.rayA, norm360(q.rayA+180), q.rayB, norm360(q.rayB+180)];
-    }
-    for(const ray of snaps){
-      let diff=Math.abs(((p.rot-ray+540)%360)-180);
-      if(diff<SNAP_E){ p.rot=ray; p.elock=true; }
-    }
+    // ② Lock to the CLOSEST baseline direction (either side, either end). Using
+    //    the nearest target — instead of the last one that happened to match —
+    //    means that near 180° (where rayA, rayB and their opposites bunch
+    //    together) aligning the right 0° line to the right side locks just as
+    //    reliably as the left side, even after the left side was locked first.
+    const s=nearestSnap(p.rot);
+    if(s.lock){ p.rot=s.rot; p.elock=true; }
     render();
   }else if(state.drag.type==='aux'){
     let a=angleOf(q.cx,q.cy,mx,my);
@@ -1717,53 +1771,41 @@ function currentStep(){
       return {icon:'🎯',main:'この 角は 何度かな？ よそうしてみよう！',
         sub:'すうじを いれて こたえてね（ぴたりで 花まる！）'};
     }
-    return {icon:'👀',main:'分度器は つかわないよ。90度より 大きい？ 小さい？',
-      sub:'まっすぐ 立った かど（90度）を 思いうかべて くらべてみよう'};
+    return {icon:'👀',main:'90度より 大きい？ 小さい？'};
   }
   if(lv===1||lv===2||lv===3){
     if(lv===3 && !state.extended){
-      return {icon:'📏',main:'まず「へんを のばす」を おそう',
-        sub:'へんが みじかいから、のばしてから はかるよ'};
+      return {icon:'📏',main:'まず「へんを のばす」を おそう'};
     }
     if(!p.vlock){
-      return {icon:'🎯',main:'分度器を 角の ちょうてんに あわせてね',
-        sub:'分度器を ドラッグして うごかそう（じどうで ロック）'};
+      return {icon:'🎯',main:'分度器を 角の ちょうてんに あわせてね'};
     }
     if(!p.elock){
-      return {icon:'📐',main:'分度器の 0度の 線を へんに あわせてね',
-        sub:'↻ ハンドルを まわして 0度を ぴったり あわせよう'};
+      return {icon:'📐',main:'分度器の 0度の 線を へんに あわせてね'};
     }
-    return {icon:'🔢',main:'目もりを よんで こたえを えらぼう',
-      sub:'よみにくいときは 🔍ルーペ や 💡ヒントを つかってね'};
+    return {icon:'🔢',main:'目もりを よんで こたえを えらぼう'};
   }
   if(lv===4){
-    return {icon:'🧮',main:'「？」の 角は なん度かな？',
-      sub:'分度器は つかわないよ。180度から かんがえてね（180 − □）'};
+    return {icon:'🧮',main:'「？」の 角は なん度かな？（180 − □）'};
   }
   // level 5
   if(!state.mode){
-    return {icon:'🤔',main:'180度より 大きい 角だよ。ほうほうを えらんでね',
-      sub:'「✏️補助線を引く」か「🔄360度から引く」を えらぼう'};
+    return {icon:'🤔',main:'180度より 大きい 角だよ。ほうほうを えらんでね'};
   }
   if(state.mode==='aux'){
     if(!state.auxLocked){
-      return {icon:'✏️',main:'点線を まっすぐ(180度)の のばした線に あわせよう',
-        sub:'どちらかの へんを ドラッグで まっすぐ のばすよ'};
+      return {icon:'✏️',main:'点線を まっすぐ(180度)の のばした線に あわせよう'};
     }
     if(!p.vlock){
-      return {icon:'🎯',main:'分度器を 角の ちょうてんに あわせてね',
-        sub:'分度器を ドラッグして うごかそう（じどうで ロック）'};
+      return {icon:'🎯',main:'分度器を 角の ちょうてんに あわせてね'};
     }
-    return {icon:'🔢',main:'2つの「？」を タップして 入力しよう（180 + □）',
-      sub:'目もりを よんで 入力すると、しきが けいさんされるよ'};
+    return {icon:'🔢',main:'2つの「？」を タップして 入力しよう（180 + □）'};
   }
   if(state.mode==='360'){
     if(!p.vlock){
-      return {icon:'🎯',main:'分度器を 角の ちょうてんに あわせてね',
-        sub:'分度器を ドラッグして うごかそう（じどうで ロック）'};
+      return {icon:'🎯',main:'分度器を 角の ちょうてんに あわせてね'};
     }
-    return {icon:'🔢',main:'内がわの「？」を タップして 入力しよう（360 − □）',
-      sub:'目もりを よんで 入力すると、しきが けいさんされるよ'};
+    return {icon:'🔢',main:'内がわの「？」を タップして 入力しよう（360 − □）'};
   }
   return null;
 }
@@ -1913,7 +1955,7 @@ if(!window.PointerEvent){
 function toggleHint(){
   // turning the hint ON requires the protractor to be placed (level 4 exempt)
   if(!state.hint && !hintReady()){
-    helpnote('分度器を 角の ちょうてんに あわせてから ヒントを 押してね');
+    helpnote('分度器を ちょうてんに あわせ、0度の 線を へんに そろえてから ヒントを 押してね');
     return;
   }
   state.hint=!state.hint;
@@ -1921,11 +1963,14 @@ function toggleHint(){
   render();
 }
 // is the protractor positioned so a hint (number-band guidance) makes sense?
+// ① 正しい位置（角の頂点に中心を合わせ、0度線を辺にぴったり合わせた状態）に
+//    セットされてはじめてヒントを出せるようにする。vlock だけでなく elock も必須。
 function hintReady(){
   if(!state.q) return false;
   if(state.q.level===4) return true;            // no protractor; 180° hint is fine
   // for any level that uses the protractor, require it to be locked on the vertex
-  if(state.prot.visible && state.prot.vlock) return true;
+  // AND have its 0°/180° baseline aligned to a side (elock).
+  if(state.prot.visible && state.prot.vlock && state.prot.elock) return true;
   return false;
 }
 
@@ -2017,10 +2062,9 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 function welcome(){
   openModal(`
     <div class="big">📐✨</div>
-    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v19</span></h2>
-    <p>分度器の つかいかたを マスターしよう！<br>やりたい レベルを えらんでね！</p>
+    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v22</span></h2>
+    <p>分度器の つかいかたを マスターしよう！</p>
     <div class="lvlpicker" id="lp"></div>
-    <button onclick="window._begin()">▶ レベル1から はじめる</button>
   `, true);
   const lp=document.getElementById('lp');
   const descs=[
