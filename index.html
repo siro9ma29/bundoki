@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>分度器マスター v22</title>
+<title>分度器マスター v23</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
 
@@ -318,7 +318,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v22</span></div>
+    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v23</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -1840,7 +1840,10 @@ function configUIForLevel(){
   document.getElementById('from360Btn').classList.remove('chosen');
   // ② レベル0(見積もり)・1〜3は2択UI。ただし見積もりの「数あてチャレンジ」中はテンキー入力。
   const estChal=(lv===0 && state.estChallenge);
-  const twoChoice=((lv===0||lv===1||lv===2||lv===3) && !estChal);
+  // ① レベル2〜4(内部1〜3): 1問目だけ2択、2問目以降は数字入力(レベル5・6と同じ)。
+  //    レベル1(内部0)の見積もりは従来どおり常に2択(チャレンジ時はテンキー)。
+  const twoChoice=( (lv===0 && !estChal) ||
+                    ((lv===1||lv===2||lv===3) && state.qIndex===0) );
   document.getElementById('keypad').style.display = twoChoice?'none':'grid';
   document.querySelector('.rightcol').style.display = twoChoice?'none':'flex';
   const ad=document.getElementById('ansDisplay'); if(ad) ad.style.display = twoChoice?'none':'flex';
@@ -2062,7 +2065,7 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 function welcome(){
   openModal(`
     <div class="big">📐✨</div>
-    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v22</span></h2>
+    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v23</span></h2>
     <p>分度器の つかいかたを マスターしよう！</p>
     <div class="lvlpicker" id="lp"></div>
   `, true);
