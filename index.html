@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>分度器マスター v23</title>
+<title>分度器マスター v24</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
 
@@ -318,7 +318,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v23</span></div>
+    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v24</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -453,7 +453,7 @@ function figureCenter(){
 /* ================= GLOBAL STATE ================= */
 const state={
   level:0, qIndex:0, qPerLevel:5, score:0,
-  levelDone:[false,false,false,false,false,false],
+  levelDone:[false,false,false,false,false],
   q:null,            // current question object
   answer:"",         // typed answer
   // protractor
@@ -461,18 +461,23 @@ const state={
   drag:null,
   hint:false,
   loupe:false,
-  loupeFocus:null,  // {x,y} tapped focus point for the magnifier (level5)
-  loupePart:null,   // level5 aux: which "?" part the loupe is magnifying ('a'|'b')
-  extended:false,    // level3
-  auxAngle:null,     // level5 A aux line current angle (screen deg)
+  loupeFocus:null,  // {x,y} tapped focus point for the magnifier (level4)
+  loupePart:null,   // level4 aux: which "?" part the loupe is magnifying ('a'|'b')
+  extended:false,    // level2 (short edges)
+  auxAngle:null,     // level4 aux line current angle (screen deg)
   auxLocked:false,
   auxBase:'A',       // ⑥ which ray the aux line extends: 'A' (rayA) or 'B' (rayB)
-  mode:null,         // level5: 'aux' | '360'
+  mode:null,         // level4: 'aux' | '360'
   pointers:{},
-  // level5 tappable angle parts (⑥⑦): values typed into the "?" markers on the figure
+  // level4 tappable angle parts (⑥⑦): values typed into the "?" markers on the figure
   partInputs:{a:"",b:""},   // a = first part (e.g. 180), b = second part (e.g. □)
   activePart:null,          // which part the keypad currently edits: 'a' | 'b' | null
-  estChallenge:false,       // ② 見積もりレベルの「数あてチャレンジ」モードか
+  estChallenge:false,       // ② 見積もりレベル(0)の「数あてチャレンジ」モードか
+  // v24: 新レベル1（鋭角＋鈍角混合）は2フェーズ。
+  //   measurePhase=false → 90度より大小を選ぶフェーズ（分度器なし）
+  //   measurePhase=true  → 分度器を出して測定するフェーズ
+  measurePhase:false,
+  cmp90:false,              // レベル1・2のヒント: 90度ものさし(比較図)の表示中か
 };
 
 /* ================= QUESTION GENERATION ================= */
@@ -495,39 +500,43 @@ function genQuestion(level){
     q.rayB=norm360(baseDir+target);
     return q;
   }
-  if(level===1){ // acute 5..85
-    target=pick([20,25,30,35,40,45,50,55,60,65,70,75,80,85]);
-  }else if(level===2){ // obtuse 95..175
-    target=pick([95,100,110,115,120,125,130,135,140,145,150,160,165,170,175]);
-  }else if(level===3){ // short edges, any acute/obtuse
+  // ── 新レベル割り当て（v24で L2/L3 統合・全体を 0〜4 に詰めた） ──
+  //   level1 : 鋭角＋鈍角の混合（90度より大小を選んでから 分度器で測る）
+  //   level2 : 辺が短い角（旧 level3。辺をのばして測る）
+  //   level3 : 直線分割（旧 level4。180 − □）
+  //   level4 : 180度より大きい角（旧 level5。aux / 360）
+  if(level===1){ // ① 鋭角・鈍角を混ぜて出題（90度ちょうど付近は避ける）
+    target=pick([20,25,30,35,40,45,50,55,60,65,70,75,80,85,
+                 95,100,110,115,120,125,130,135,140,145,150,160,165,170,175]);
+  }else if(level===2){ // short edges, any acute/obtuse（旧 level3）
     target=pick([35,40,55,70,110,120,135,140,150]);
-  }else if(level===4){ // straight-line split, ask the ? part
+  }else if(level===3){ // straight-line split, ask the ? part（旧 level4）
     const known=pick([25,30,40,45,50,55,60,65,70,75,110,115,120,125,130,135,140]);
     q.known=known; target=180-known; q.straight=true;
-  }else{ // level5 reflex 185..355 (avoid 180/360)
+  }else{ // level4 reflex 185..355（旧 level5。avoid 180/360）
     target=pick([200,210,220,225,230,240,250,260,270,280,290,300,315,320,330,340,350]);
   }
   q.target=target;
 
-  // ② レベル1〜3は2択。分度器の内・外の目もりの よみまちがいを表す
-  // 「180 − 角度」を まぎらわしい もう一方の選択肢にする（例: 60↔120, 55↔125）。
-  if(level===1||level===2||level===3){
+  // ② レベル1・2は2択（1問目のみ／レベル1は90度大小フェーズ後の測定）。
+  // 分度器の内・外の目もりの よみまちがいを表す「180 − 角度」を まぎらわしい
+  // もう一方の選択肢にする（例: 60↔120, 55↔125）。
+  if(level===1||level===2){
     q.distractor=180-target;
   }
 
-  if(level===4){
+  if(level===3){
     // horizontal straight line through vertex; one ray goes up dividing it.
     baseDir=0; // ray to the right (0°) and left (180°)
     q.rayLeft=180; q.rayRight=0;
     q.divider=q.known; // measured from right ray (0°) CCW = known angle, "?" is 180-known on left side
-    // We'll mark ? as the angle between divider and left ray.
-  }else if(level===5){
+  }else if(level===4){
     baseDir = pick([0,15,25,40,55,180,200,330]);
     q.rayA=norm360(baseDir);
     q.rayB=norm360(baseDir+target); // reflex opening measured CCW from A to B (the big side)
   }else{
-    // ③ first question of levels 1-3: one edge horizontal (baseDir = 0)
-    if(state.qIndex===0 && (level===1||level===2||level===3)){
+    // ③ first question of levels 1-2: one edge horizontal (baseDir = 0)
+    if(state.qIndex===0 && (level===1||level===2)){
       baseDir=0;
     }else{
       baseDir = pick([0,10,20,30,40,50,180,200,300,330]);
@@ -587,13 +596,14 @@ function render(){
    active magnifier off. */
 function loupeReady(){
   if(!state.q) return false;
-  if(state.q.level===4) return false;            // no protractor in level 4
+  if(state.q.level===3) return false;            // no protractor in level 3 (直線分割)
+  if(state.q.level===1 && !state.measurePhase) return false; // L1 選択フェーズ
   return state.prot.visible && state.prot.vlock; // locked on the angle vertex
 }
 function updateLoupeBtn(){
   const btn=document.getElementById('loupeBtn');
   if(!btn) return;
-  if(state.q && state.q.level===4){ btn.style.display='none'; return; }
+  if(state.q && (state.q.level===3 || (state.q.level===1 && !state.measurePhase))){ btn.style.display='none'; return; }
   const ready=loupeReady();
   btn.disabled=!ready;
   if(!ready && state.loupe){
@@ -607,7 +617,7 @@ function drawFigure(){
   const q=state.q, g=layers.fig;
   const cx=q.cx, cy=q.cy;
 
-  if(q.level===4){
+  if(q.level===3){
     // horizontal line
     const [lx,ly]=polar(cx,cy,180,rayLen(260));
     const [rx,ry]=polar(cx,cy,0,rayLen(260));
@@ -625,23 +635,23 @@ function drawFigure(){
     return;
   }
 
-  // ③ Level-5 loupe emphasis: while the magnifier is on, shade the angle being
+  // ③ Level-4 loupe emphasis: while the magnifier is on, shade the angle being
   // measured (translucent pink wedge) and paint its two edges red, so it's clear
   // which lines the loupe is reading. Drawn FIRST so the rays/arcs sit on top,
   // and on the fig layer so it is cloned into the magnified view too.
   // In aux mode, only draw it once the child has tapped a "?" part to choose
   // which angle to magnify.
-  const showEmphasis = q.level===5 && state.loupe &&
+  const showEmphasis = q.level===4 && state.loupe &&
     (state.mode!=='aux' || (state.mode==='aux' && state.loupePart));
   if(showEmphasis){ drawMeasureEmphasis(g,cx,cy); }
 
-  // generic two-ray angle (levels 1,2,3,5)
-  let len = q.level===3 ? 64 : rayLen(235);
+  // generic two-ray angle (levels 1,2,4)
+  let len = q.level===2 ? 64 : rayLen(235);
   const [ax,ay]=polar(cx,cy,q.rayA,len);
   const [bx,by]=polar(cx,cy,q.rayB,len);
-  // extension dotted (level3 after extend)
+  // extension dotted (level2: 短い辺 after extend)
   const fullLen=rayLen(235);
-  if(q.level===3 && state.extended){
+  if(q.level===2 && state.extended){
     const [ax2,ay2]=polar(cx,cy,q.rayA,fullLen);
     const [bx2,by2]=polar(cx,cy,q.rayB,fullLen);
     g.appendChild(el('line',{x1:ax,y1:ay,x2:ax2,y2:ay2,stroke:'var(--grass-dark)','stroke-width':4,'stroke-dasharray':'2 9','stroke-linecap':'round'}));
@@ -651,7 +661,7 @@ function drawFigure(){
   g.appendChild(el('line',{x1:cx,y1:cy,x2:bx,y2:by,stroke:'var(--line)','stroke-width':3.5,'stroke-linecap':'round'}));
 
   // angle arc (the side we measure: from A to B going CCW)
-  if(q.level===5){
+  if(q.level===4){
     pendingParts=[];   // ④ collected here, drawn after the protractor in drawParts()
     // colors for the two split parts (⑥): kept in sync with their ? labels
     const COL_A='var(--proto)';   // first part (rayA → aux, = 180°)
@@ -724,7 +734,45 @@ function drawFigure(){
     const mid=norm360(q.rayA+q.target/2);
     labelAngle(g,cx,cy,mid,60,'?','var(--coral)',true);
   }
+  // ④ 90度ものさし（比較図）: レベル1・2のヒントで、出題の角と「90度ちょうど」を
+  //    見くらべられるよう、頂点から はかりたい辺(rayA)に直角の 半透明な
+  //    水色のL字(直角マーク付き)を重ねて描く。
+  if(state.cmp90 && (q.level===1 || q.level===2)){
+    drawNinetyRuler(g,cx,cy,q.rayA);
+  }
   vertexDot(g,cx,cy);
+}
+
+/* ④ 90度ものさし: 頂点 cx,cy から、基準辺 baseDeg に対して直角(反時計回りに+90°)
+   の方向へ水色の辺を引き、直角の四角マークと「90°」ラベルを添える。出題の角が
+   90度より大きいか小さいかを目で比べられるようにするためのヒント図。 */
+function drawNinetyRuler(g,cx,cy,baseDeg){
+  const len=rayLen(220);
+  const perp=norm360(baseDeg+90);   // 基準辺から反時計回りに90°
+  const SKY='var(--sky-dark)';
+  // 基準辺(rayAと同じ向き)を強調
+  const [bx,by]=polar(cx,cy,baseDeg,len);
+  g.appendChild(el('line',{x1:cx,y1:cy,x2:bx,y2:by,stroke:SKY,'stroke-width':5,
+    'stroke-linecap':'round',opacity:.55}));
+  // 直角のもう一辺
+  const [px,py]=polar(cx,cy,perp,len);
+  const arm=el('line',{x1:cx,y1:cy,x2:px,y2:py,stroke:SKY,'stroke-width':5,
+    'stroke-linecap':'round','stroke-dasharray':'10 7',opacity:.85});
+  arm.appendChild(el('animate',{attributeName:'opacity',values:'.45;.95;.45',dur:'1.4s',repeatCount:'indefinite'}));
+  g.appendChild(arm);
+  // 直角マーク(小さな四角)
+  const s=22;
+  const [c1x,c1y]=polar(cx,cy,baseDeg,s);
+  const [c2x,c2y]=polar(cx,cy,perp,s);
+  const [c3x,c3y]=[c1x+(c2x-cx),c1y+(c2y-cy)];
+  g.appendChild(el('path',{d:`M ${c1x.toFixed(1)} ${c1y.toFixed(1)} L ${c3x.toFixed(1)} ${c3y.toFixed(1)} L ${c2x.toFixed(1)} ${c2y.toFixed(1)}`,
+    fill:'none',stroke:SKY,'stroke-width':3,opacity:.9}));
+  // 「90°」ラベル
+  const [tx,ty]=polar(cx,cy,norm360(baseDeg+45),64);
+  const t=el('text',{x:tx,y:ty,'text-anchor':'middle','dominant-baseline':'central',
+    'font-family':'Zen Maru Gothic','font-weight':900,'font-size':20,fill:SKY,
+    stroke:'#fff','stroke-width':5,'paint-order':'stroke'});
+  t.textContent='90°'; g.appendChild(t);
 }
 
 function vertexDot(g,cx,cy){
@@ -829,11 +877,11 @@ function labelInput(g,cx,cy,deg,r,part,color){
 function measuredBoundaries(){
   const q=state.q;
   if(!q) return null;
-  // Levels 1–3: the angle is rayA → rayB.
-  if(q.level!==5) return {start:q.rayA, end:q.rayB};
-  // Level 5, 360 mode: the inner (small) angle is rayB → rayA.
+  // Levels 1–2: the angle is rayA → rayB.
+  if(q.level!==4) return {start:q.rayA, end:q.rayB};
+  // Level 4, 360 mode: the inner (small) angle is rayB → rayA.
   if(state.mode==='360') return {start:q.rayB, end:q.rayA};
-  // Level 5, aux mode (locked): the angle depends on which "?" part is selected.
+  // Level 4, aux mode (locked): the angle depends on which "?" part is selected.
   if(state.mode==='aux' && state.auxLocked && state.auxAngle!=null){
     const aux=norm360(state.auxAngle);
     // part 'a' = rayA → aux ; part 'b' = aux → rayB.
@@ -953,12 +1001,13 @@ function drawProtractor(){
   // ③ Level 5 also benefits: once the protractor is on the figure (360 mode, or
   // after the auxiliary line is locked) we highlight the ring that the child
   // should read, exactly like the earlier levels.
-  // ⑥ In aux mode the question has TWO "?" angles, so the hint band must only
-  //    appear for the part the child actually tapped. Require activePart/loupePart.
+  // v24: ピンクの帯は「180度より大きい角」レベル(level4)でのみ出す。
+  // 新レベル1(鋭角＋鈍角)・レベル2(辺が短い)のヒントは 90度ものさし＋コメント方式に
+  // 変更したため、これらでは帯を出さない。level3(直線分割)は分度器を使わない。
+  // ⑥ aux モードは「?」が2つあるので、子どもがタップした側だけ帯を出す。
   const auxPartChosen = !!((state.loupe && state.loupePart) || state.activePart);
-  const showBand = state.hint && state.q && state.q.level!==4 &&
-        (state.q.level!==5 ? true : (state.q.level===5 &&
-          (state.mode==='360' || (state.mode==='aux' && state.auxLocked && auxPartChosen))));
+  const showBand = state.hint && state.q && state.q.level===4 &&
+          (state.mode==='360' || (state.mode==='aux' && state.auxLocked && auxPartChosen));
   if(showBand){
     const useOuter = whichScale();       // true → outer black ring, false → inner red ring
     const bandR = useOuter ? trB : trR;  // radius of the number ring to cover
@@ -1076,7 +1125,7 @@ function endLabel(grp,xx,txt,fill,dy,fs,rot){
 function drawHint(){
   if(!state.hint) return;
   const q=state.q, g=layers.hint, cx=q.cx, cy=q.cy;
-  if(q.level===4){
+  if(q.level===3){
     // big half arc over the straight line + "180°"
     const R=rayLen(210);
     drawAngleArc(g,cx,cy,0,180,R,'var(--hint)');
@@ -1087,7 +1136,7 @@ function drawHint(){
     t.appendChild(pulse);
     return;
   }
-  if(q.level===5){
+  if(q.level===4){
     const len=rayLen(235);
     if(state.mode==='aux'){
       if(state.auxLocked){
@@ -1125,29 +1174,25 @@ function drawHint(){
     }
     return;
   }
-  // levels 1,2,3 : highlight the 0-line (one ray) and measuring direction
-  const len=rayLen(235);
-  const [ax,ay]=polar(cx,cy,q.rayA,len);
-  const glow=el('line',{x1:cx,y1:cy,x2:ax,y2:ay,stroke:'var(--hint)','stroke-width':11,'stroke-linecap':'round',opacity:.45});
-  glow.appendChild(el('animate',{attributeName:'opacity',values:'.2;.6;.2',dur:'1.3s',repeatCount:'indefinite'}));
-  g.appendChild(glow);
-  // "0°から" tag — placed beside the edge (on the side away from the angle opening), not overlapping it
-  const [bx0,by0]=polar(cx,cy,q.rayA,len*0.6);
-  const offDir=norm360(q.rayA-90); // perpendicular, opposite the opening side
-  const [ox,oy]=polar(0,0,offDir,24);
-  const tx=bx0+ox, ty=by0+oy;
-  const tag=el('g',{});
-  const tg=el('rect',{x:tx-26,y:ty-13,width:52,height:22,rx:8,fill:'var(--hint)'});
-  tag.appendChild(tg);
-  const tt=el('text',{x:tx,y:ty+1,'text-anchor':'middle','dominant-baseline':'central','font-size':12,'font-weight':900,fill:'#fff'});
-  tt.textContent='0°から'; tag.appendChild(tt);
-  g.appendChild(tag);
-  // ① pink measuring arc with an OUTWARD-pointing arrowhead at BOTH ends
-  // (the single directional sweep arrow has been removed).
-  const r=52;
-  drawAngleArc(g,cx,cy,q.rayA,q.rayB,r,'var(--hint)');
-  drawArcEndArrow(g,cx,cy,q.rayA,r,true);   // start end → points outward (CW, away from sweep)
-  drawArcEndArrow(g,cx,cy,q.rayB,r,false);  // end end   → points outward (CCW, away from sweep)
+  // ── レベル1(鋭角＋鈍角混合)・レベル2(辺が短い) ──
+  // v24: ピンクの帯/矢印は出さず、90度ものさし(drawFigureで描画)で 90度と
+  // 見くらべさせる。さらに、いま 90度より大きいか小さいかをコメントで伝える。
+  //   レベル1の「選択フェーズ」(measurePhase=false): 比較図だけ出す(答えを言い切らない)。
+  //   レベル1の「測定フェーズ」/レベル2: 90度より大小のコメントも添える。
+  if(q.level===1 || q.level===2){
+    const showComment = (q.level===2) || (q.level===1 && state.measurePhase);
+    if(showComment){
+      const big = q.target>90;
+      const msg = big ? '90度より 大きい 角だね' : '90度より 小さい 角だね';
+      const [tx,ty]=polar(cx,cy,norm360(q.rayA+q.target/2), rayLen(220)*0.5+40);
+      hintTag(g,tx,ty,msg);
+    }else{
+      // 選択フェーズ: 90度と見くらべてね、と促すだけ
+      const [tx,ty]=polar(cx,cy,norm360(q.rayA+45), 120);
+      hintTag(g,tx,ty,'90度と くらべてみよう');
+    }
+    return;
+  }
 }
 
 /* ① draw a small arrowhead at one end of the pink hint arc, pointing OUTWARD
@@ -1189,7 +1234,7 @@ function drawLoupe(){
   // Magnify the OUTER edge of the protractor where the measured angle's far
   // boundary crosses the tick band and printed numbers — that's exactly the
   // value the child should read. ⑥⑦
-  const q=state.q; if(q.level===4){return;}
+  const q=state.q; if(q.level===3){return;}
   const p=state.prot; const R=protRadius();
   let fx,fy;
   // The edge to read = the boundary of the measured angle that is NOT laid on
@@ -1210,7 +1255,7 @@ function drawLoupe(){
     const gs=gapTo(b.start), ge=gapTo(b.end);
     // the boundary closest to a baseline end is the "0° line"; magnify the other.
     edge = (gs<=ge) ? b.end : b.start;
-  }else if(q.level===5 && state.mode==='aux' && state.auxLocked && state.auxAngle!=null){
+  }else if(q.level===4 && state.mode==='aux' && state.auxLocked && state.auxAngle!=null){
     // protractor not yet placed in aux mode: fall back to the non-auxiliary edge
     const part = (state.loupe && state.loupePart) || state.activePart || 'a';
     edge = (part==='a') ? q.rayA : q.rayB;
@@ -1338,7 +1383,7 @@ function nearFigure(mx,my){
   const FIG_HIT=30;
   if(dist(mx,my,q.cx,q.cy)<60) return true;     // near the vertex
   const len=rayLen(260);
-  const rays = q.level===4
+  const rays = q.level===3
     ? [0,180,q.divider]
     : [q.rayA,q.rayB];
   for(const a of rays){
@@ -1420,7 +1465,7 @@ function pointerDown(e){
   if(tgtRole==='partlabel'){
     const part=e.target.dataset?.part || e.target.parentNode?.dataset?.part;
     state.activePart = (state.activePart===part)? null : part;
-    if(state.level===5 && state.loupe && state.activePart===part){
+    if(state.level===4 && state.loupe && state.activePart===part){
       state.loupePart=part;
       state.loupeFocus=null;
     }
@@ -1480,7 +1525,7 @@ function pointerMove(e){
   }else if(state.drag.type==='rotate'){
     // ③ レベル6: 分度器を回転させたら、読みたい角の「？」タップも
     //    ヒントも解除する（合わせ直したら選び直す運用にして誤読を防ぐ）。
-    if(state.level===5){
+    if(state.level===4){
       if(state.activePart){ state.activePart=null; }
       if(state.hint){
         state.hint=false;
@@ -1588,7 +1633,7 @@ function haptic(){ if(navigator.vibrate) navigator.vibrate(18); }
 const ansDisplay=document.getElementById('ansDisplay');
 /* ⑥⑦ derive the final answer (and memo) from the tapped angle parts */
 function syncLevel5Answer(){
-  if(state.level!==5) return;
+  if(state.level!==4) return;
   if(state.mode==='aux'){
     const a=parseInt(state.partInputs.a,10);
     const b=parseInt(state.partInputs.b,10);
@@ -1624,7 +1669,7 @@ function renderAnswer(){
 document.getElementById('keypad').addEventListener('click',e=>{
   const k=e.target.dataset?.k; if(!k) return;
   // ⑥⑦ if a level5 "?" part is selected, type into it instead of the main answer
-  if(state.level===5 && state.activePart){
+  if(state.level===4 && state.activePart){
     const part=state.activePart;
     let v=state.partInputs[part];
     if(k==='C') v="";
@@ -1643,7 +1688,7 @@ document.getElementById('keypad').addEventListener('click',e=>{
   state.answer=state.answer.replace(/^0+(?=\d)/,'');
   renderAnswer();
   // ③ レベル4: 入力した答えで「180 − □ = 答え」を計算メモに表示
-  if(state.level===4){
+  if(state.level===3){
     const known=state.q.known;
     if(state.answer!==''){
       const v=parseInt(state.answer,10);
@@ -1657,7 +1702,7 @@ document.getElementById('keypad').addEventListener('click',e=>{
 /* tapping the answer-display deselects any level-5 "?" part so the keypad types
    back into the main answer box (no need to re-tap the figure "?" to release). */
 ansDisplay.addEventListener('click',()=>{
-  if(state.level===5 && state.activePart){
+  if(state.level===4 && state.activePart){
     state.activePart=null;
     render();
   }
@@ -1735,10 +1780,16 @@ function newQuestion(){
   state.extended=false; state.mode=null; state.auxAngle=null; state.auxLocked=false; state.auxBase='A';
   state.partInputs={a:"",b:""}; state.activePart=null;
   state.estChallenge=false;
+  state.cmp90=false;
+  // v24: 新レベル1は「90度大小を選ぶ→分度器で測る」の2フェーズ。最初は選択フェーズ。
+  state.measurePhase = (state.level!==1);
   closeCalc();   // ③ hide the calculator when switching question/level
   // protractor reset
   const p=state.prot;
-  p.visible=(state.level!==4 && state.level!==0);
+  //   level0(推定)・level3(直線分割) は分度器なし。
+  //   level1 は選択フェーズの間は隠し、measurePhase になったら出す。
+  p.visible=(state.level!==3 && state.level!==0 &&
+             !(state.level===1 && !state.measurePhase));
   const R=protRadius();
   p.x=clamp(state.q.cx, R+8, W-R-8);
   // 分度器の上端が上のウィンドウに重ならないよう、上に余白(約110px)を確保してから配置
@@ -1773,8 +1824,22 @@ function currentStep(){
     }
     return {icon:'👀',main:'90度より 大きい？ 小さい？'};
   }
-  if(lv===1||lv===2||lv===3){
-    if(lv===3 && !state.extended){
+  // ── 新レベル1: 鋭角＋鈍角混合（90度大小を選ぶ→分度器で測る）──
+  if(lv===1){
+    if(!state.measurePhase){
+      return {icon:'👀',main:'まず 90度より 大きい？ 小さい？'};
+    }
+    if(!p.vlock){
+      return {icon:'🎯',main:'分度器を 角の ちょうてんに あわせてね'};
+    }
+    if(!p.elock){
+      return {icon:'📐',main:'分度器の 0度の 線を へんに あわせてね'};
+    }
+    return {icon:'🔢',main:'目もりを よんで こたえてね'};
+  }
+  // ── 新レベル2: 辺が短い角（旧 level3）──
+  if(lv===2){
+    if(!state.extended){
       return {icon:'📏',main:'まず「へんを のばす」を おそう'};
     }
     if(!p.vlock){
@@ -1783,12 +1848,13 @@ function currentStep(){
     if(!p.elock){
       return {icon:'📐',main:'分度器の 0度の 線を へんに あわせてね'};
     }
-    return {icon:'🔢',main:'目もりを よんで こたえを えらぼう'};
+    return {icon:'🔢',main:'目もりを よんで こたえてね'};
   }
-  if(lv===4){
+  // ── 新レベル3: 直線分割（旧 level4）──
+  if(lv===3){
     return {icon:'🧮',main:'「？」の 角は なん度かな？（180 − □）'};
   }
-  // level 5
+  // ── 新レベル4: 180度より大きい角（旧 level5）──
   if(!state.mode){
     return {icon:'🤔',main:'180度より 大きい 角だよ。ほうほうを えらんでね'};
   }
@@ -1830,29 +1896,34 @@ function configUIForLevel(){
   const lv=state.level;
   document.getElementById('hintBtn').style.display = (lv===0)?'none':'flex';
   document.getElementById('hintBtn').classList.remove('chosen');
-  document.getElementById('extendBtn').style.display = (lv===3)?'flex':'none';
+  document.getElementById('extendBtn').style.display = (lv===2)?'flex':'none';
   document.getElementById('extendBtn').disabled = false;
-  document.getElementById('auxBtn').style.display = (lv===5)?'flex':'none';
-  document.getElementById('from360Btn').style.display = (lv===5)?'flex':'none';
-  document.getElementById('loupeBtn').style.display = (lv===4||lv===0)?'none':'flex';
+  document.getElementById('auxBtn').style.display = (lv===4)?'flex':'none';
+  document.getElementById('from360Btn').style.display = (lv===4)?'flex':'none';
+  // ルーペ: level0(推定)・level3(直線分割)、および level1 の選択フェーズでは隠す。
+  const hideLoupe = (lv===3 || lv===0 || (lv===1 && !state.measurePhase));
+  document.getElementById('loupeBtn').style.display = hideLoupe?'none':'flex';
   document.getElementById('loupeBtn').classList.remove('on');
   document.getElementById('auxBtn').classList.remove('chosen');
   document.getElementById('from360Btn').classList.remove('chosen');
-  // ② レベル0(見積もり)・1〜3は2択UI。ただし見積もりの「数あてチャレンジ」中はテンキー入力。
+  // 2択UIを出す条件:
+  //   level0(推定): 90度大小の2択（チャレンジ中はテンキー）。
+  //   level1 の「選択フェーズ」: 90度大小の2択。
+  //   level1/level2 の測定フェーズ: 1問目だけ2択、以降テンキー。
   const estChal=(lv===0 && state.estChallenge);
-  // ① レベル2〜4(内部1〜3): 1問目だけ2択、2問目以降は数字入力(レベル5・6と同じ)。
-  //    レベル1(内部0)の見積もりは従来どおり常に2択(チャレンジ時はテンキー)。
-  const twoChoice=( (lv===0 && !estChal) ||
-                    ((lv===1||lv===2||lv===3) && state.qIndex===0) );
+  const l1Choice=(lv===1 && !state.measurePhase);                 // 90度大小フェーズ
+  const measureTwoChoice=( ((lv===1 && state.measurePhase)||lv===2)
+                           && state.qIndex===0 );                  // 測定の1問目
+  const twoChoice=( (lv===0 && !estChal) || l1Choice || measureTwoChoice );
   document.getElementById('keypad').style.display = twoChoice?'none':'grid';
   document.querySelector('.rightcol').style.display = twoChoice?'none':'flex';
   const ad=document.getElementById('ansDisplay'); if(ad) ad.style.display = twoChoice?'none':'flex';
   document.getElementById('choices').classList.toggle('show', twoChoice);
   if(twoChoice) buildChoices();
   else document.getElementById('choices').innerHTML='';
-  // memo
-  document.getElementById('memoWrap').classList.toggle('show', lv===4); // L5 memo appears after choosing
-  if(lv===4){ setMemo(`180 − ${state.q.known} = <span class="eq-result">？</span>`, false); }
+  // memo（level3=直線分割でのみ式メモを使う）
+  document.getElementById('memoWrap').classList.toggle('show', lv===3);
+  if(lv===3){ setMemo(`180 − ${state.q.known} = <span class="eq-result">？</span>`, false); }
   else { setMemo(''); }
 }
 
@@ -1884,6 +1955,24 @@ function buildChoices(){
     box.appendChild(chal);
     return;
   }
+  // 新レベル1の「選択フェーズ」: 90度より大小を選ぶ（選ぶと分度器フェーズへ進む）
+  if(q.level===1 && !state.measurePhase){
+    const ql=document.createElement('div');
+    ql.className='choice-q'; ql.textContent='この 角は 90度より…？';
+    box.appendChild(ql);
+    const opts=[
+      {label:'小さい', icon:'🔻', val:'small'},
+      {label:'大きい', icon:'🔺', val:'big'}
+    ];
+    for(const o of opts){
+      const b=document.createElement('button');
+      b.className='choice-btn est';
+      b.innerHTML=`<span class="cdeg">90°より</span><span class="estbig">${o.icon} ${o.label}</span>`;
+      b.onclick=()=>chooseCmp90(o.val,b);
+      box.appendChild(b);
+    }
+    return;
+  }
   const ql=document.createElement('div');
   ql.className='choice-q'; ql.textContent='この 角は どっち？';
   box.appendChild(ql);
@@ -1897,6 +1986,37 @@ function buildChoices(){
     b.onclick=()=>chooseAnswer(v,b);
     box.appendChild(b);
   }
+}
+/* 新レベル1の選択フェーズ: 90度より大小を選んだら、正誤に応じて
+   フィードバックし、正解なら分度器を出す測定フェーズへ進む。 */
+function chooseCmp90(val,btn){
+  haptic();
+  document.querySelectorAll('.choice-btn').forEach(x=>x.classList.remove('picked'));
+  btn.classList.add('picked');
+  const correct = state.q.target<90 ? 'small' : 'big';
+  if(val===correct){
+    toast(true,'いいね！',pick(['よく見えたね！','その通り！','正解！']));
+    setTimeout(enterMeasurePhase, 900);
+  }else{
+    toast(false,'もういちど 見てみよう','90度（まっすぐ 立った かど）と くらべてみてね');
+    setTimeout(()=>{ document.querySelectorAll('.choice-btn').forEach(x=>x.classList.remove('picked')); }, 200);
+  }
+}
+/* 選択フェーズ → 測定フェーズへ。分度器を出して通常の測定操作に入る。 */
+function enterMeasurePhase(){
+  state.measurePhase=true;
+  state.hint=false; state.cmp90=false;
+  const hb=document.getElementById('hintBtn'); if(hb) hb.classList.remove('chosen');
+  state.answer="";
+  // 分度器を出す（newQuestion と同じ初期配置ロジック）
+  const p=state.prot, R=protRadius();
+  p.visible=true; p.vlock=false; p.elock=false; p.rot=0;
+  p.x=clamp(state.q.cx, R+8, W-R-8);
+  p.y=clamp(Math.max(H*0.46, R+110), R+8, H-8);
+  configUIForLevel();   // 測定UI（1問目は2択、以降テンキー）へ
+  renderAnswer();
+  render();
+  updateFlow();
 }
 /* ② 2択を選んだら即判定 */
 function chooseAnswer(val,btn){
@@ -1956,23 +2076,28 @@ if(!window.PointerEvent){
   });
 }
 function toggleHint(){
-  // turning the hint ON requires the protractor to be placed (level 4 exempt)
+  const lv = state.q ? state.q.level : -1;
+  // turning the hint ON
   if(!state.hint && !hintReady()){
     helpnote('分度器を ちょうてんに あわせ、0度の 線を へんに そろえてから ヒントを 押してね');
     return;
   }
   state.hint=!state.hint;
+  // レベル1・2のヒントは「90度ものさし(比較図)」を一緒に出す/消す
+  if(lv===1 || lv===2){ state.cmp90 = state.hint; }
   document.getElementById('hintBtn').classList.toggle('chosen',state.hint);
   render();
 }
-// is the protractor positioned so a hint (number-band guidance) makes sense?
-// ① 正しい位置（角の頂点に中心を合わせ、0度線を辺にぴったり合わせた状態）に
-//    セットされてはじめてヒントを出せるようにする。vlock だけでなく elock も必須。
+// is a hint available now?
+// ① レベル1(鋭角＋鈍角)・レベル2(辺が短い): 90度ものさしで比べる方式なので、
+//    分度器の配置を待たずに いつでも出せる。
+// ② レベル3(直線分割): 分度器なしの 180° ヒントなのでいつでも出せる。
+// ③ レベル4(180度超): 分度器を頂点に合わせ 0度線を辺にそろえた状態が必須。
 function hintReady(){
   if(!state.q) return false;
-  if(state.q.level===4) return true;            // no protractor; 180° hint is fine
-  // for any level that uses the protractor, require it to be locked on the vertex
-  // AND have its 0°/180° baseline aligned to a side (elock).
+  const lv=state.q.level;
+  if(lv===1 || lv===2) return true;             // 90度ものさし方式
+  if(lv===3) return true;                        // no protractor; 180° hint is fine
   if(state.prot.visible && state.prot.vlock && state.prot.elock) return true;
   return false;
 }
@@ -1986,7 +2111,7 @@ document.getElementById('loupeBtn').addEventListener('click',function(){
   state.loupe=!state.loupe; this.classList.toggle('on',state.loupe);
   let note=null;
   if(!state.loupe){ state.loupeFocus=null; state.loupePart=null; }
-  else if(state.level===5){
+  else if(state.level===4){
     state.loupeFocus=null;
     if(state.activePart){
       state.loupePart=state.activePart;
@@ -2028,12 +2153,12 @@ document.getElementById('from360Btn').addEventListener('click',function(){
   render();
 });
 
-/* 内部レベル(0..5) → 画面表示レベル(1..6) */
+/* 内部レベル(0..4) → 画面表示レベル(1..5) */
 function dispLevel(intLv){ return intLv+1; }
 /* level pips */
 function updatePips(){
   const c=document.getElementById('levelpips'); c.innerHTML='';
-  for(let lv=0;lv<=5;lv++){
+  for(let lv=0;lv<=4;lv++){
     const b=document.createElement('div');
     b.className='pip'+(lv===state.level?' active':'')+(state.levelDone[lv]?' done':'');
     b.textContent=dispLevel(lv); b.title='レベル'+dispLevel(lv);
@@ -2043,7 +2168,7 @@ function updatePips(){
 }
 function finishLevel(){
   state.levelDone[state.level]=true; updatePips();
-  const next=state.level<5?state.level+1:null;
+  const next=state.level<4?state.level+1:null;
   const stars='⭐⭐⭐';
   openModal(`
     <div class="big">🏆</div>
@@ -2053,7 +2178,7 @@ function finishLevel(){
     ${next!=null?`<button onclick="window._next()">レベル${dispLevel(next)}へ ➜</button>`:`<button onclick="window._next()">🎉 ぜんぶ クリア！もういちど</button>`}
     <button class="alt" onclick="window._retry()">もういちど レベル${dispLevel(state.level)}</button>
   `);
-  window._next=()=>{ closeModal(); if(next!=null){ startLevel(next); } else { state.levelDone=[false,false,false,false,false,false]; updatePips(); startLevel(0); } };
+  window._next=()=>{ closeModal(); if(next!=null){ startLevel(next); } else { state.levelDone=[false,false,false,false,false]; updatePips(); startLevel(0); } };
   window._retry=()=>{ closeModal(); startLevel(state.level); };
 }
 function allDone(){return state.levelDone.every(Boolean);}
@@ -2065,20 +2190,19 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 function welcome(){
   openModal(`
     <div class="big">📐✨</div>
-    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v23</span></h2>
+    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v24</span></h2>
     <p>分度器の つかいかたを マスターしよう！</p>
     <div class="lvlpicker" id="lp"></div>
   `, true);
   const lp=document.getElementById('lp');
   const descs=[
-    '分度器を 使わずに 大きさを 見つもろう',  // level0
-    '分度器を 使って はかろう',
-    '90度より 大きな 角を はかろう',
-    '辺が 短いときの はかり方を 知ろう',
-    '分度器を 使わないで 求めよう',
-    '180度より 大きな 角を はかろう'
+    '分度器を 使わずに 大きさを 見つもろう',           // level0 (推定)
+    '分度器を 使って はかろう（鋭角も 鈍角も）',       // level1 (鋭角＋鈍角混合)
+    '辺が 短いときの はかり方を 知ろう',               // level2 (旧 level3)
+    '分度器を 使わないで 求めよう',                     // level3 (直線分割)
+    '180度より 大きな 角を はかろう'                    // level4 (旧 level5)
   ];
-  for(let lv=0;lv<=5;lv++){
+  for(let lv=0;lv<=4;lv++){
     const b=document.createElement('button');
     b.className='alt';
     b.innerHTML=`<span class="lvtag">レベル${dispLevel(lv)}</span><span>${descs[lv]}</span>`;
