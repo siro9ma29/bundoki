@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>分度器マスター v25</title>
+<title>分度器マスター v26</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
 
@@ -318,7 +318,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v25</span></div>
+    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v26</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -719,9 +719,11 @@ function drawFigure(){
       const reflexMid=norm360(q.rayA + q.target/2);
       labelAngle(g,cx,cy,reflexMid,66,'?','var(--berry)',true);
       // pattern B: highlight inner angle and let child type it (⑦) — drawn on top
-      drawAngleArc(g,cx,cy,q.rayB,q.rayA,40,'#e53935',true);
+      // ⑧ 内がわの角は外がわの reflex「？」(berry/ピンク)と色が近いと区別しにくい
+      //    ので、はっきり違う水色系にする。
+      drawAngleArc(g,cx,cy,q.rayB,q.rayA,40,'var(--sky-dark)',true);
       const innerMid=norm360(q.rayB+(360-q.target)/2);
-      pendingParts.push([cx,cy,innerMid,72,'a','#e53935']);
+      pendingParts.push([cx,cy,innerMid,72,'a','var(--sky-dark)']);
     }
     else{
       // no method chosen yet — show the reflex arc + ? so it's clear which angle is asked
@@ -2194,7 +2196,7 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 function welcome(){
   openModal(`
     <div class="big">📐✨</div>
-    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v25</span></h2>
+    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v26</span></h2>
     <p>分度器の つかいかたを マスターしよう！</p>
     <div class="lvlpicker" id="lp"></div>
   `, true);
