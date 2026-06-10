@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>分度器マスター v24</title>
+<title>分度器マスター v25</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
 
@@ -318,7 +318,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v24</span></div>
+    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v25</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -1995,11 +1995,15 @@ function chooseCmp90(val,btn){
   btn.classList.add('picked');
   const correct = state.q.target<90 ? 'small' : 'big';
   if(val===correct){
-    toast(true,'いいね！',pick(['よく見えたね！','その通り！','正解！']));
-    setTimeout(enterMeasurePhase, 900);
+    // 正答: フィードバックなしで すぐに分度器を表示
+    enterMeasurePhase();
   }else{
-    toast(false,'もういちど 見てみよう','90度（まっすぐ 立った かど）と くらべてみてね');
-    setTimeout(()=>{ document.querySelectorAll('.choice-btn').forEach(x=>x.classList.remove('picked')); }, 200);
+    // 誤答: 90度ものさしを出し、正答を示してから分度器を表示
+    const big = state.q.target>90;
+    const msg = big ? '90度より 大きい 角だよ' : '90度より 小さい 角だよ';
+    state.cmp90=true; render();
+    toast(false, msg, 'よく見て、分度器で はかってみよう');
+    setTimeout(enterMeasurePhase, 1600);
   }
 }
 /* 選択フェーズ → 測定フェーズへ。分度器を出して通常の測定操作に入る。 */
@@ -2190,7 +2194,7 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 function welcome(){
   openModal(`
     <div class="big">📐✨</div>
-    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v24</span></h2>
+    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v25</span></h2>
     <p>分度器の つかいかたを マスターしよう！</p>
     <div class="lvlpicker" id="lp"></div>
   `, true);
