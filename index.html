@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>分度器マスター v26</title>
+<title>分度器マスター v27</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
 
@@ -318,7 +318,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v26</span></div>
+    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v27</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -1068,6 +1068,21 @@ function drawProtractor(){
       tr.textContent=180-a; tr.setAttribute('transform',`rotate(${p.rot} ${rx} ${ry})`);
       grp.appendChild(tr);
     }
+  }
+
+  // ⑨ 0度の線が辺に重なったら、読むべき「0」を赤丸で囲んで示す（レベル2・3）。
+  //    外側(黒)の0 = 右端(local 0°, 半径 trB)、内側(赤)の0 = 左端(local 180°, 半径 trR)。
+  //    whichScale() で どちらの目もりを読むかを判定し、対応する 0 を囲む。
+  if(p.elock && (state.q.level===1 || state.q.level===2)){
+    const useOuter=whichScale();              // true → 外側(黒)の0、false → 内側(赤)の0
+    const zx = useOuter ? trB : -trR;
+    const zr = useOuter ? 12 : 11;
+    const zring=el('circle',{cx:zx,cy:0,r:zr,fill:'none',
+      stroke:RED,'stroke-width':2.6});
+    zring.setAttribute('transform',`rotate(${p.rot} ${zx} 0)`);
+    zring.appendChild(el('animate',{attributeName:'r',
+      values:`${zr-1.5};${zr+1.5};${zr-1.5}`,dur:'1.2s',repeatCount:'indefinite'}));
+    grp.appendChild(zring);
   }
 
   // inner blank semicircle (the central "window")
@@ -2196,7 +2211,7 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 function welcome(){
   openModal(`
     <div class="big">📐✨</div>
-    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v26</span></h2>
+    <h2>分度器マスター <span style="font-size:.5em;font-weight:700;color:#b7a878;background:#fff;border:2px solid #e3d2a5;border-radius:8px;padding:1px 7px;vertical-align:middle;">v27</span></h2>
     <p>分度器の つかいかたを マスターしよう！</p>
     <div class="lvlpicker" id="lp"></div>
   `, true);
