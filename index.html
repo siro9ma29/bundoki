@@ -342,7 +342,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v28</span></div>
+    <div class="logo" id="logoBtn" onclick="welcome()" title="イントロにもどる"><span class="gizmo">📐</span>分度器マスター<span class="ver">v29</span></div>
     <div class="levelpips" id="levelpips"></div>
     <div class="spacer"></div>
     <div class="score">⭐ <span id="score">0</span></div>
@@ -530,6 +530,7 @@ const state={
   zeroChosen:false,         // レベル2(内部level1)「0度はどっち？」で 正しい0を選んだか
   zeroFlash:false,          // ⑩ 正解(0)を選んだ直後、読む目もりをピンクの帯で光らせる
   calcExpr:"",              // レベル4(内部level4) 計算機の式
+  judged:false,             // v29: 正解して次の問題を待っている間か（連打で★が増えないように）
 };
 
 /* ================= QUESTION GENERATION ================= */
@@ -1912,6 +1913,7 @@ ansDisplay.addEventListener('click',()=>{
 /* ================= SUBMIT / JUDGE ================= */
 document.getElementById('submitBtn').addEventListener('click',judge);
 function judge(){
+  if(state.judged) return;   // v29: 正解後の待ち時間は判定しない（連打対策）
   if(state.answer===""){ toast(false,'すうじを いれてね','テンキーで こたえを にゅうりょく'); return; }
   // ① 見積もりレベル: 90度より大きい/小さいで判定（ぴったりの数値は不要）
   if(state.q.level===0){
@@ -1921,17 +1923,17 @@ function judge(){
       if(isNaN(guess)){ toast(false,'すうじを いれてね','テンキーで よそうを にゅうりょく'); return; }
       const err=Math.abs(guess-state.q.target);
       if(err===0){
-        state.score+=3; document.getElementById('score').textContent=state.score;
+        state.judged=true; state.score+=3; document.getElementById('score').textContent=state.score;
         toast(true,'🌸 花まる！ ぴったり！！',`せいかいは ${state.q.target}度。まさに 名人わざ！ (+3)`);
         confettiBurst(); confettiBurst();
         setTimeout(nextQuestion,1800);
       }else if(err<=10){
-        state.score+=2; document.getElementById('score').textContent=state.score;
+        state.judged=true; state.score+=2; document.getElementById('score').textContent=state.score;
         toast(true,`◎ ニアピン！`,`せいかいは ${state.q.target}度（あと ${err}度！）すごい目！ (+2)`);
         confettiBurst();
         setTimeout(nextQuestion,1800);
       }else if(err<=20){
-        state.score+=1; document.getElementById('score').textContent=state.score;
+        state.judged=true; state.score+=1; document.getElementById('score').textContent=state.score;
         toast(true,`○ おしい！`,`せいかいは ${state.q.target}度（${err}度ずれ）いい かんかく！ (+1)`);
         confettiBurst();
         setTimeout(nextQuestion,1800);
@@ -1944,7 +1946,7 @@ function judge(){
     }
     const correct = state.q.target<90 ? 'small' : 'big';
     if(state.answer===correct){
-      state.score++; document.getElementById('score').textContent=state.score;
+      state.judged=true; state.score++; document.getElementById('score').textContent=state.score;
       toast(true,'せいかい！',pick(['いい目だね！','その通り！','よく見えたね！','かんぺき！']));
       confettiBurst();
       setTimeout(nextQuestion,1400);
@@ -1957,7 +1959,7 @@ function judge(){
   }
   const val=parseInt(state.answer,10);
   if(val===state.q.target){
-    state.score++; document.getElementById('score').textContent=state.score;
+    state.judged=true; state.score++; document.getElementById('score').textContent=state.score;
     toast(true,'せいかい！',pick(['すごい！','やったね！','てんさい！','かんぺき！']));
     confettiBurst();
     setTimeout(nextQuestion,1400);
@@ -1984,6 +1986,7 @@ function newQuestion(){
   state.cmp90=false;
   state.zeroChosen=false; state.zeroFlash=false;
   state.calcExpr="";
+  state.judged=false;   // v29: 新しい問題で判定を受け付けなおす
   // v24: 新レベル1は「90度大小を選ぶ→分度器で測る」の2フェーズ。最初は選択フェーズ。
   state.measurePhase = (state.level!==1);
   closeCalc();   // ③ hide the calculator when switching question/level
@@ -2224,6 +2227,8 @@ function buildChoices(){
 /* 新レベル1の選択フェーズ: 90度より大小を選んだら、正誤に応じて
    フィードバックし、正解なら分度器を出す測定フェーズへ進む。 */
 function chooseCmp90(val,btn){
+  if(state.judged || state.measurePhase) return;   // v29: 選んだあと（分度器が出るまで・出たあと）は受け付けない（連打対策）
+  state.judged=true;
   haptic();
   document.querySelectorAll('.choice-btn').forEach(x=>x.classList.remove('picked'));
   btn.classList.add('picked');
@@ -2242,7 +2247,9 @@ function chooseCmp90(val,btn){
 }
 /* 選択フェーズ → 測定フェーズへ。分度器を出して通常の測定操作に入る。 */
 function enterMeasurePhase(){
+  if(state.measurePhase) return;   // v29: 重ねて呼ばれても分度器を置きなおさない
   state.measurePhase=true;
+  state.judged=false;   // v29: 測定フェーズの答えを受け付ける
   state.hint=false; state.cmp90=false; state.zeroChosen=false; state.zeroFlash=false;
   const hb=document.getElementById('hintBtn'); if(hb) hb.classList.remove('chosen');
   state.answer="";
@@ -2258,6 +2265,7 @@ function enterMeasurePhase(){
 }
 /* ② 2択を選んだら即判定 */
 function chooseAnswer(val,btn){
+  if(state.judged) return;   // v29: 正解後の連打は無視
   haptic();
   document.querySelectorAll('.choice-btn').forEach(x=>x.classList.remove('picked'));
   btn.classList.add('picked');
@@ -2267,6 +2275,7 @@ function chooseAnswer(val,btn){
 }
 /* ② 見積もりレベルの「数あてチャレンジ」へ切り替える（テンキー入力で角度を予想） */
 function startEstChallenge(){
+  if(state.judged) return;   // v29: 正解後に切り替えない
   haptic();
   state.estChallenge=true;
   state.answer="";
